@@ -1,0 +1,11 @@
+{
+  "name": "bug-test-bot",
+  "version": "1.2.0",
+  "description": "useful for testing discord bugs",
+  "main": "src/bugTestBot.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "wakfi",
+  "license": "MIT"
+}

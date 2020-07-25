@@ -1,0 +1,3 @@
+# BugTestBot
+
+I was kind of lazy with this, and also initially wrote it before I was doing files for each command and utility. Much of the meat is in the main file in src, but there are some very important (and some are quite powerful and nice to work with if I do say so myself) utilities in src/util that I wrote. All contents are open source and available to use and/or reuse under standard MIT License procedures
