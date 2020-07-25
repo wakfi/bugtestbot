@@ -204,7 +204,7 @@ client.on("message", async message => {
 				const steps = embed.description.slice(2).replace(reproRegex, ' ~');
 				const expect = embed.fields[0].value;
 				const actual = embed.fields[1].value;
-				const system = pargs.system = (function(info) 
+				const system = (function(info) 
 				{
 					switch(info)
 					{
@@ -332,6 +332,26 @@ client.on("message", async message => {
 			} else {
 				selfDeleteReply(message, `Couldn't find a report with message ID: \`${args.join(' ')}\``);
 			}
+		},
+		
+		"rebuild": async function() {
+			if(message.type === 'dm') return;
+			const sargs = args.join(' ').split('-');
+			const title = sargs.shift().replace('\n','');
+			const nsplit = sargs.pop().split('\n');
+			sargs.push(nsplit.shift());
+			const reproRegex = /\n-/g
+			const steps = sargs.join('-').slice(1).replace(reproRegex, ' ~');
+			nsplit.shift();
+			const expect = nsplit.shift();
+			nsplit.shift();
+			const actual = nsplit.shift();
+			nsplit.shift();
+			const system = nsplit.shift();
+			nsplit.shift();
+			const client = nsplit.shift();
+			const report = `!submit -t ${title} -r ${steps} -e ${expect} -a ${actual} -s ${system} -c ${client}`;
+			message.channel.send('```' + report + '```');
 		},
 		
 		"approve": async function(){commandLUT["canrepro"]},
