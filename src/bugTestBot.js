@@ -236,7 +236,7 @@ client.on("message", async message => {
 			if(message.type === 'dm') return;
 			const pargs = parseArgs(args, ['title','repro','expected','actual','system','client','infosys'], ['t','r','e','a','s','c','i']);
 			const { title,repro,expected,actual,system,client,infosys } = pargs;
-			if(!(title && repro && expected && actual && client && (system || infosys))) return authorReply(message, `Missing flags\n\`\`\`${args.join}\`\`\``);
+			if(!(title && repro && expected && actual && client && (system || infosys))) return authorReply(message, `Missing flags\nHere is your command:\`\`\`${message.content}\`\`\``);
 			if(!system)
 			{
 				pargs.system = (function(info) 
@@ -385,7 +385,7 @@ client.on("message", async message => {
 			const quoteRegex = /[“”]/g;
 			const messageContent = args.join(' ');
 			const cleanContent = messageContent.replace(apostropheRegex, `'`).replace(quoteRegex, `"`);
-			message.channel.send(cleanContent).catch(console.error);
+			message.channel.send('```\n' + cleanContent + '\n```').catch(console.error);
 		},
 		
 		"deletehook": async function() {
