@@ -14,7 +14,7 @@ const selfDeleteReply = require(`${process.cwd()}/util/selfDeleteReply.js`);
 const authorReply = require(`${process.cwd()}/util/authorReply.js`);
 
 //adds timestamps to log outputs
-function fixLogs() 
+function fixLogs()
 {
 	let origLogFunc = console.log;
 	let origErrFunc = console.error;
@@ -135,19 +135,23 @@ client.on("message", async message => {
 			const m = await message.channel.send("Ping?");
 			m.edit(`Pong! Latency is ${m.createdTimestamp - message.createdTimestamp}ms. API Latency is ${Math.round(client.ping)}ms`);
 		},
-		//sends a quote at random from the quote channel to the spooky book, except on demand instead of timed
 		
 		//gives the bot the appearance of speaking by deleting the command message and stealing the content. Will evevntually streamline for remote control (from terminal or dm)
 		"say": async function() {
 			const pargs = parseArgs(args, ['time','message'], ['in','m']);
 			if(pargs.time)
 			{
-				const waitTime = pargs.time.join(' ');
-				message.channel.send(`Waiting for ${printTimePretty(millisecondsToString(parseTime(waitTime)))}`);
+				const waitTime = pargs.time.split(' ').join('');
+				try {
+				 message.channel.send(`Waiting for ${printTimePretty(millisecondsToString(parseTime(waitTime)))}`);
+				} catch(e) {
+					console.error(e.stack);
+					return message.channel.send(`Failed to parse: ${waitTime}`);
+				}
 				await delay(waitTime);
 			}
-			const sayMessage = pargs.message.join(' ') || pargs.args.join(' ');
-			message.delete().catch(O_o=>{console.error(O_o)});
+			const sayMessage = pargs.message || pargs.args.join(' ');
+			if(message.channel.type != 'dm') message.delete().catch(O_o=>{console.error(O_o)});
 			message.channel.send(sayMessage).catch(err=>{});
 		},
 
@@ -155,7 +159,7 @@ client.on("message", async message => {
 		//utilizes a bulk message deltion feature available to bots, able to do up to 100 messages at once, minimum 3. Adjusted to erase command message as well
 		"purge": async function() {
 			if(message.author.id != 193160566334947340)
-				return message.author.send(`Sorry, you don't have permissions to use this!`);
+				return authorReply(message,`Sorry, you don't have permissions to use this!`);
 			// This command removes all messages from all users in the channel, up to 100
 			
 			// get the delete count, as an actual number.
@@ -232,7 +236,7 @@ client.on("message", async message => {
 			if(message.type === 'dm') return;
 			const pargs = parseArgs(args, ['title','repro','expected','actual','system','client','infosys'], ['t','r','e','a','s','c','i']);
 			const { title,repro,expected,actual,system,client,infosys } = pargs;
-			if(!(title && repro && expected && actual && client && (system || infosys))) return authorReply(message, `Missing flags\n\`\`\`${args.join}\`\`\``);
+			if(!(title && repro && expected && actual && client && (system || infosys))) return authorReply(message, `Missing flags\nHere is your command:\`\`\`${message.content}\`\`\``);
 			if(!system)
 			{
 				pargs.system = (function(info) 
@@ -340,7 +344,7 @@ client.on("message", async message => {
 			const title = sargs.shift().replace('\n','');
 			const nsplit = sargs.pop().split('\n');
 			sargs.push(nsplit.shift());
-			const reproRegex = /\n-/g
+			const reproRegex = /\s*\n-/g
 			const steps = sargs.join('-').slice(1).replace(reproRegex, ' ~');
 			nsplit.shift();
 			const expect = nsplit.shift();
@@ -381,7 +385,7 @@ client.on("message", async message => {
 			const quoteRegex = /[“”]/g;
 			const messageContent = args.join(' ');
 			const cleanContent = messageContent.replace(apostropheRegex, `'`).replace(quoteRegex, `"`);
-			message.channel.send(cleanContent).catch(console.error);
+			message.channel.send('```\n' + cleanContent + '\n```').catch(console.error);
 		},
 		
 		"deletehook": async function() {
