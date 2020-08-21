@@ -380,6 +380,46 @@ client.on("message", async message => {
 			}
 		},
 		
+		"embed": async function() {
+			const pargs = parseArgs(args, ['author','author2','avatar','avatar2','avatar3','color','color2','thumbnail','thumbnail2','title','title2','description','description2','url','url2','url3','footer','footer2','footerAvatar','footerAvatar2','footerAvatar3','timestamp','timestamp2','image','image2'], ['a','-author','p','-author-avatar','-author-picture','c','-color','b','-thumbnail','t','-title','d','-description','u','-url','-link','f','-footer','o','-footer-avatar','-footer-picture','s','-timestamp','i','-image']);
+			const author = pargs.author || pargs.author2;
+			const avatar = pargs.avatar || pargs.avatar2 || pargs.avatar3;
+			const color = pargs.color || pargs.color2;
+			const thumbnail = pargs.thumbnail || pargs.thumbnail2;
+			const title = pargs.title || pargs.title2;
+			const description = pargs.description || pargs.description2;
+			const url = pargs.url || pargs.url2 || pargs.url3;
+			const footer = pargs.footer || pargs.footer2;
+			const footerAvatar = pargs.footerAvatar || pargs.footerAvatar2 || pargs.footerAvatar3;
+			const timestamp = pargs.timestamp || pargs.timestamp2;
+			const image = pargs.image || pargs.image2;
+			let rargs = pargs.args;
+			const embed = new Discord.RichEmbed();
+			if(author) embed.setAuthor(author,avatar);
+			if(thumbnail) embed.setThumbnail(thumbnail);
+			if(color) embed.setColor(color);
+			if(title) embed.setTitle(title);
+			if(description) embed.setDescription(description);
+			if(url) embed.setURL(url);
+			if(footer) embed.setFooter(footer,footerAvatar);
+			if(timestamp !== undefined) embed.setTimestamp(Number(timestamp));
+			if(image) embed.setImage(image);
+			while(rargs != false)
+			{
+				const fargs = parseArgs(args, ['name','value','inline','inline2'], ['n','v','e','-inline']);
+				if(fargs.name || fargs.value)
+				{
+					const name = fargs.name || '\u200B';
+					const value = fargs.value || '\u200B';
+					const inline = fargs.inline || fargs.inline2;
+					embed.addField(name, value, inline);
+				}
+				if(rargs === fargs.args) break;
+				rargs = fargs.args;
+			}
+			message.channel.send(embed);
+		},
+		
 		"ios": async function() {
 			const apostropheRegex = /’/g;
 			const quoteRegex = /[“”]/g;
