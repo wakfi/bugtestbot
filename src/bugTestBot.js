@@ -12,6 +12,7 @@ const parseTime = require(`${process.cwd()}/util/parseTime.js`);
 const printTimePretty = require(`${process.cwd()}/util/printTimePretty.js`);
 const selfDeleteReply = require(`${process.cwd()}/util/selfDeleteReply.js`);
 const authorReply = require(`${process.cwd()}/util/authorReply.js`);
+const arrayEquals = require(`${process.cwd()}/util/arrayEquals.js`);
 
 //adds timestamps to log outputs
 function fixLogs()
@@ -213,28 +214,28 @@ client.on("message", async message => {
 					switch(info)
 					{
 						case 'saved Mac system info':
-							return '-i mac';
+							return '--storedinfo mac';
 						case 'saved Windows system info':
-							return '-i windows';
+							return '--storedinfo windows';
 						case 'saved Android system info':
-							return '-i android';
+							return '--storedinfo android';
 						case 'saved iOS system info':
-							return '-i ios';
+							return '--storedinfo ios';
 						default:
-							return `-s ${info}`;
+							return `--system ${info}`;
 					}
 				})(embed.fields[2].value);
 				const client = embed.fields[3].value;
-				const report = `!submit -t ${title} -r ${steps} -e ${expect} -a ${actual} ${system} -c ${client}`;
-				message.channel.send('```' + report + '```');
+				const report = `!submit --title ${title} --repro-steps ${steps} --expected ${expect} --actual ${actual} ${system} --client ${client}`; //${system} IS NOT SUPPOSED TO HAVE A FLAG IN FRONT OF IT. It gets that from the switch (-i/-s)
+				message.channel.send('```\n' + report + '\n```');
 			} else {
-				selfDeleteReply(message, `Couldn't find a report with message ID: \`${rid}\``);
+				return selfDeleteReply(message, `Couldn't find a report with message ID: \`${rid}\``);
 			}
 		},
 		
 		"submit": async function() {
 			if(message.type === 'dm') return;
-			const pargs = parseArgs(args, ['title','repro','expected','actual','system','client','infosys'], ['t','r','e','a','s','c','i']);
+			const pargs = parseArgs(args, {'title':['t','-title'], 'repro':['r','-repro-steps'], 'expected':['e','-expected'], 'actual':['a','-actual'], 'system':['s','-system'], 'client':['c','-client'], 'infosys':['i','-storedinfo']});
 			const { title,repro,expected,actual,system,client,infosys } = pargs;
 			if(!(title && repro && expected && actual && client && (system || infosys))) return authorReply(message, `Missing flags\nHere is your command:\`\`\`${message.content}\`\`\``);
 			if(!system)
@@ -279,15 +280,15 @@ client.on("message", async message => {
 		
 		"edit": async function() {
 			if(message.type === 'dm') return;
-			const pargs = parseArgs(args, ['title','repro','expected','actual','system','client','infosys'], ['t','r','e','a','s','c','i']);
+			const pargs = parseArgs(args, {'title':['t','-title'], 'repro':['r','-repro-steps'], 'expected':['e','-expected'], 'actual':['a','-actual'], 'system':['s','-system'], 'client':['c','-client']});
 			const rid = pargs.args.join(' ');
 			const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
 			await message.delete();
 			if(target)
 			{
-				const { title,repro,expected,actual,system,client,infosys } = pargs;
+				const { title,repro,expected,actual,system,client } = pargs;
 				const embed = new Discord.RichEmbed(target.embeds[0]);
-				if(!(title || repro || expected || actual || client || system || infosys)) return selfDeleteReply(message, 'You need to include one or more flag(s)');
+				if(!(title || repro || expected || actual || client || system)) return selfDeleteReply(message, 'You need to include one or more flag(s)');
 				if(title) embed.setTitle(title);
 				if(repro)
 				{
@@ -297,26 +298,7 @@ client.on("message", async message => {
 				}
 				if(expected) embed.fields[0].value = expected;
 				if(actual) embed.fields[1].value = actual;
-				if(system || infosys) 
-				{
-					embed.fields[2].value = system ? system : 
-						(function(info) 
-						{
-							switch(info)
-							{
-								case 'mac':
-									return 'saved Mac system info';
-								case 'windows':
-									return 'saved Windows system info';
-								case 'android':
-									return 'saved Android system info';
-								case 'ios':
-									return 'saved iOS system info';
-								default:
-									return `unknown system "${info}"`;
-							}
-						})(infosys.toLowerCase());
-				}
+				if(system) embed.fields[2].value = system;
 				if(client) embed.fields[3].value = client;
 				await target.edit(embed);
 				selfDeleteReply(message, `Updated report at ${rid}`);
@@ -354,8 +336,8 @@ client.on("message", async message => {
 			const system = nsplit.shift();
 			nsplit.shift();
 			const client = nsplit.shift();
-			const report = `!submit -t ${title} -r ${steps} -e ${expect} -a ${actual} -s ${system} -c ${client}`;
-			message.channel.send('```' + report + '```');
+			const report = `!submit --title ${title} --repro-steps ${steps} --expected ${expect} --actual ${actual} --system ${system} --client ${client}`;
+			message.channel.send('```\n' + report + '\n```');
 		},
 		
 		"approve": async function(){commandLUT["canrepro"]},
@@ -378,6 +360,46 @@ client.on("message", async message => {
 			} else {
 				client.user.setActivity(args.join(" "));
 			}
+		},
+		
+		"embed": async function() {
+			const pargs = parseArgs(args, {'author':['a', '-author'], 'avatar':['p', '-author-avatar', '-author-picture'], 'color':['c', '-color'], 'thumbnail':['b', '-thumbnail'], 'title':['t', '-title'], 'description':['d', '-description'], 'url':['u', '-url', '-link'], 'footer':['f', '-footer'], 'footerAvatar':['o', '-footer-avatar', '-footer-picture', '--footer-icon'], 'timestamp':['s', '-timestamp'], 'image':['i', '-image']});
+			const author = pargs.author;
+			const avatar = pargs.avatar;
+			const color = pargs.color;
+			const thumbnail = pargs.thumbnail;
+			const title = pargs.title;
+			const description = pargs.description;
+			const url = pargs.url;
+			const footer = pargs.footer;
+			const footerAvatar = pargs.footerAvatar;
+			const timestamp = pargs.timestamp === 'now' ? Date.now() : pargs.timestamp;
+			const image = pargs.image;
+			let rargs = [...pargs.args];
+			const embed = new Discord.RichEmbed();
+			if(author) embed.setAuthor(author,avatar);
+			if(thumbnail) embed.setThumbnail(thumbnail);
+			if(color) embed.setColor(color);
+			if(title) embed.setTitle(title);
+			if(description) embed.setDescription(description);
+			if(url) embed.setURL(url);
+			if(footer) embed.setFooter(footer,footerAvatar);
+			if(timestamp !== undefined) embed.setTimestamp(Number(timestamp));
+			if(image) embed.setImage(image);
+			while(rargs != false)
+			{
+				const fargs = parseArgs(rargs, {'name':'n','value':'v','inline':['e','-inline']});
+				if(fargs.name !== undefined || fargs.value !== undefined)
+				{
+					const name = fargs.name || '\u200B';
+					const value = fargs.value || '\u200B';
+					const inline = fargs.inline;
+					embed.addField(name, value, inline);
+				}
+				if(arrayEquals(rargs,fargs.args)) break;
+				rargs = [...fargs.args];
+			}
+			message.channel.send(embed);
 		},
 		
 		"ios": async function() {
