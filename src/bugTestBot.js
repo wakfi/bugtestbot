@@ -124,13 +124,6 @@ client.on("message", async message => {
 	
 	if(message.author.bot) return;	
 	
-	if(message.channel.id == '712972942451015683')
-	{
-		await message.react('735712895601606686');
-		await message.react('735713063529087066');
-	}
-
-	
 	if(message.content.indexOf(config.prefix) !== 0) return;
 	
 	// commands from users using prefix go below here
