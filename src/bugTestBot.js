@@ -251,7 +251,17 @@ client.on("message", async message => {
 			if(message.type === 'dm') return;
 			const pargs = parseArgs(args, {'title':['t','-title'], 'repro':['r','-repro-steps'], 'expected':['e','-expected'], 'actual':['a','-actual'], 'system':['s','-system'], 'client':['c','-client'], 'infosys':['i','-storedinfo']});
 			const { title,repro,expected,actual,system,client,infosys } = pargs;
-			if(!(title && repro && expected && actual && client && (system || infosys))) return authorReply(message, `Missing flags\nHere is your command:\`\`\`${message.content}\`\`\``);
+			if(!(title && repro && expected && actual && client && (system || infosys)))
+			{
+				const missingFlags = [];
+				if(!title) missingFlags.push('--title');
+				if(!repro) missingFlags.push('--repro-steps');
+				if(!expected) missingFlags.push('--expected');
+				if(!actual) missingFlags.push('--actual');
+				if(!system) missingFlags.push('--system');
+				if(!client) missingFlags.push('--client');
+				return authorReply(message, `Missing flags:\`${missingFlags.join('`, `')}\`\n\nHere is your command:\n\`\`\`${message.content}\`\`\``);
+			}
 			if(!system)
 			{
 				pargs.system = (function(info) 
@@ -323,7 +333,14 @@ client.on("message", async message => {
 		
 		"nuke": async function() {
 			if(message.type === 'dm') return;
-			const target = await message.guild.channels.get('712972942451015683').fetchMessage(args.join(' '));
+			const input = args.join(' ');
+			try {
+				const target = await message.guild.channels.get('712972942451015683').fetchMessage(input);
+			} catch(e) {
+				console.error(e.stack);
+				return selfDeleteReply(message, `an error occurred with your input\n> ${input}`);
+			}
+			if(!target) return selfDeleteReply(message, `could not find report\n> ${input}`);
 			await message.delete();
 			if(target)
 			{
