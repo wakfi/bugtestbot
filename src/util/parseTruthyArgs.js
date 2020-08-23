@@ -21,7 +21,7 @@ function parseTruthyArgs(args,flags,options)
 	if(typeof options === 'undefined') options = {};
 	const flagPrefix = options.flagPrefix || dashflag;
 	const flagMatching = options.flagMatching || dashMatching;
-	const flagRegex = options.flagRegex || ((options.flagMatching || options.flagPrefix) ? new RegExp(`(?<=\\s|^)${flagPrefix}(${flagMatching})(?=\\s|$)`,`gi`) : dashflagRegex);
+	const flagRegex = options.flagRegex || ((options.flagMatching || options.flagPrefix) ? new RegExp(`(?<=\\s|^)${flagPrefix}(${flagMatching})(?=\\s|$)`,`g`) : dashflagRegex);
 	if(!(flagRegex instanceof RegExp)) throw new TypeError(`flagRegex must be a Regular Expression`);
 	const argsCopy = [...args];
 	const flagsMap = new Map();
@@ -47,7 +47,7 @@ function parseTruthyArgs(args,flags,options)
 	}
 	const doublePrefix = options.doublePrefix || [flagPrefix,flagPrefix].join('');
 	const doubleMatching = options.doubleMatching || doubleDashMatching;
-	const doubleRegex = options.doubleRegex || new RegExp(`(?<=\\s|^)${doublePrefix}${doubleMatching}(?=\\s|$)`,`gi`);
+	const doubleRegex = options.doubleRegex || new RegExp(`(?<=\\s|^)${doublePrefix}${doubleMatching}(?=\\s|$)`,`g`);
 	const doubleFound = options.disableDoublePrefix ? [] : [...argsCopy.join(' ').matchAll(doubleRegex)];
 	
 	/* line by line version of variable 'found' declaration

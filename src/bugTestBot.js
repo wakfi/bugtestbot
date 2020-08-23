@@ -373,7 +373,7 @@ client.on("message", async message => {
 			const url = pargs.url;
 			const footer = pargs.footer;
 			const footerAvatar = pargs.footerAvatar;
-			const timestamp = pargs.timestamp;
+			const timestamp = pargs.timestamp === 'now' ? Date.now() : pargs.timestamp;
 			const image = pargs.image;
 			let rargs = [...pargs.args];
 			const embed = new Discord.RichEmbed();
@@ -389,7 +389,7 @@ client.on("message", async message => {
 			while(rargs != false)
 			{
 				const fargs = parseArgs(rargs, {'name':'n','value':'v','inline':['e','-inline']});
-				if(fargs.name || fargs.value)
+				if(fargs.name !== undefined || fargs.value !== undefined)
 				{
 					const name = fargs.name || '\u200B';
 					const value = fargs.value || '\u200B';

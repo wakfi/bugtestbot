@@ -1,4 +1,5 @@
 const dashflagRegex = /(?<=\s|^)-([a-zA-Z]+)(?=\s|$)/g;
+const dashflagRegexNonGlobal = /(?<=\s|^)-([a-zA-Z]+)(?=\s|$)/;
 const doubleDashMatching = '[a-zA-Z]+';
 const dashMatching = '[a-zA-Z]+';
 const dashflag = '-';
@@ -21,7 +22,8 @@ function parsePositionalArgs(args,flags,options)
 	if(typeof options === 'undefined') options = {};
 	const flagPrefix = options.flagPrefix || dashflag;
 	const flagMatching = options.flagMatching || dashMatching;
-	const flagRegex = options.flagRegex || ((options.flagMatching || options.flagPrefix) ? new RegExp(`(?<=\\s|^)${flagPrefix}(${flagMatching})(?=\\s|$)`,`gi`) : dashflagRegex);
+	const flagRegex = options.flagRegex || ((options.flagMatching || options.flagPrefix) ? new RegExp(`(?<=\\s|^)${flagPrefix}(${flagMatching})(?=\\s|$)`,`g`) : dashflagRegex);
+	const flagRegexNonGlobal = options.flagRegex || ((options.flagMatching || options.flagPrefix) ? new RegExp(`(?<=\\s|^)${flagPrefix}(${flagMatching})(?=\\s|$)`) : dashflagRegexNonGlobal);
 	const singlePosition = options.singlePosition || false;
 	if(!(flagRegex instanceof RegExp)) throw new TypeError(`flagRegex must be a Regular Expression`);
 	const argsCopy = [...args];
@@ -48,7 +50,8 @@ function parsePositionalArgs(args,flags,options)
 	}
 	const doublePrefix = options.doublePrefix || [flagPrefix,flagPrefix].join('');
 	const doubleMatching = options.doubleMatching || doubleDashMatching;
-	const doubleRegex = options.doubleRegex || new RegExp(`(?<=\\s|^)${doublePrefix}${doubleMatching}(?=\\s|$)`,`gi`);
+	const doubleRegex = options.doubleRegex || new RegExp(`(?<=\\s|^)${doublePrefix}${doubleMatching}(?=\\s|$)`,`g`);
+	const doubleRegexNonGlobal = options.doubleRegex || new RegExp(`(?<=\\s|^)${doublePrefix}${doubleMatching}(?=\\s|$)`);
 	const doubleFound = options.disableDoublePrefix ? [] : [...argsCopy.join(' ').matchAll(doubleRegex)];
 	const found = [...doubleFound, ...[...argsCopy.join(' ').matchAll(flagRegex)].map(tuple => tuple.slice(1)).flat(Infinity).join('').split(flagPrefix).join('').split('').map(foundItem => [flagPrefix,foundItem].join(''))];
 	const parse = (key,flag) => 
@@ -56,7 +59,7 @@ function parsePositionalArgs(args,flags,options)
 		if(argsCopy.includes(flag))
 		{
 			const indexKey = argsCopy.indexOf(flag);
-			const nextFlagIndex = singlePosition ? 1 : argsCopy.slice(indexKey+1).findIndex(arg => flagRegex.test(arg) || (!options.disableDoublePrefix && doubleRegex.test(arg)));
+			const nextFlagIndex = singlePosition ? 1 : argsCopy.slice(indexKey+1).findIndex(arg => flagRegexNonGlobal.test(arg) || (!options.disableDoublePrefix && doubleRegexNonGlobal.test(arg)));
 			const val = argsCopy.splice(indexKey+1, nextFlagIndex==-1 ? argsCopy.length : nextFlagIndex).join(' ');
 			Object.defineProperty(obj, key, {value: val, writable: false, enumerable: true, configurable: true});
 			argsCopy.splice(indexKey,1);
