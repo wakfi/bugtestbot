@@ -345,21 +345,22 @@ client.on("message", async message => {
 		},
 		
 		"rebuild": async function() {
-			if(message.type === 'dm') return;
-			const sargs = args.join(' ').split('-');
-			const title = sargs.shift().replace('\n','');
-			const nsplit = sargs.pop().split('\n');
-			sargs.push(nsplit.shift());
-			const reproRegex = /\s*\n-/g
-			const steps = sargs.join('-').slice(1).replace(reproRegex, ' ~');
-			nsplit.shift();
-			const expect = nsplit.shift();
-			nsplit.shift();
-			const actual = nsplit.shift();
-			nsplit.shift();
-			const system = nsplit.shift();
-			nsplit.shift();
-			const client = nsplit.shift();
+			const nargs = args.join(' ').split('\n');
+			const title = nargs.shift();
+			const esplit = nargs.join('\n').split('Expected Result');
+			const repro = esplit.shift().trim();
+			const sargs = ['', ...esplit].join('Expected Result').split('\n');
+			const reproRegex = /\s*\n-/g;
+			const leadingTildeRegex = /^\s*~\s?/;
+			const steps = repro.slice(2).replace(reproRegex, ' ~').replace(leadingTildeRegex, '');
+			sargs.shift();
+			const expect = sargs.shift();
+			sargs.shift();
+			const actual = sargs.shift();
+			sargs.shift();
+			const system = sargs.shift();
+			sargs.shift();
+			const client = sargs.shift();
 			const report = `!submit --title ${title} --repro-steps ${steps} --expected ${expect} --actual ${actual} --system ${system} --client ${client}`;
 			message.channel.send('```\n' + report + '\n```');
 		},
