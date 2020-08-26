@@ -17,6 +17,7 @@ const authorReply = require(`${process.cwd()}/util/authorReply.js`);
 const arrayEquals = require(`${process.cwd()}/util/arrayEquals.js`);
 
 const imgurCdn = `https://i.imgur.com/`;
+const imgur404Regex = /s\.\imgur\.com\/images\/404/;
 const escapedEmbedLink = /<(https:\/\/.*)>/;
 const imgurDirectRegex = /https:\/\/(?:i\.)?imgur\.com\/(?:gallery\/|a\/)?([a-zA-Z0-9]{7})\..{3,4}/;
 //potential alternate, need to verify imgur's valid extensions
@@ -414,46 +415,68 @@ client.on("message", async message => {
 		},
 		
 		"dlink": async function() {
-			let img = args.join(' ');
-			if(escapedEmbedLink.test(img)) img = escapedEmbedLink.exec(img)[1];
-			if(imgurDirectRegex.test(img))
-			{
-				/*
-				 * Check if the link is already a direct link.
-				 * In theory this segment will recover album links that are incorrectly/invalidly turned into direct links
-				 * by adding an extension directly to the album link, or by doing the same thing but also changing the domain
-				 * to imgur's 'i.imgur.com' CDN; after recovery this album link can be turned into the correct direct link
-				 */
-				const modifiedUrl = `https://imgur.com/a/${imgurDirectRegex.exec(img)[1]}`;
-				try {
-					response = await rp(modifiedUrl);
-				} catch(e) {
-					console.log(e.stack);
-					return message.channel.send(img);
-				}
-				img = modifiedUrl;
-			}
-			if(imgurAlbumRegex.test(img))
-			{
-				const response = await rp(img);
-				const itemCount = response.split(`album_images`)[1].split(`"count":`)[1].split(`,`)[0];
-				let messageBody = null;
-				if(itemCount == 1)
+			const escapedLinks = [];
+			const resolveDirect = async (img) => {
+				if(escapedEmbedLink.test(img)) img = escapedEmbedLink.exec(img)[1];
+				const oimg = img;
+				if(imgurDirectRegex.test(img))
 				{
-					const link = imgurImgOrVideo.test(response) ? response.split(`<link rel="image_src" href="`)[1].split(`"`)[0]				    :
-																  response.split(`<meta property="og:video"`)[1].split(`content="`)[1].split(`"`)[0];
-					messageBody = `<${link}>`;
-				} else {
-					const imageData = [...response.split(`album_images`)[1].split(`"images":[`)[1].split(`]},`)[0].matchAll(imgurUriRegex)];
-					const imageUris = imageData.map(hashAndExt => hashAndExt.slice(1).join(``));
-					const imageLinks = imageUris.map(uri => [imgurCdn,uri].join(``));
-					const escapedLinks = imageLinks.map(link => `<${link}>`);
-					messageBody = escapedLinks.join(`\n`);
+					/*
+					 * Check if the link is already a direct link.
+					 * In theory this segment will recover album links that are incorrectly/invalidly turned into direct links
+					 * by adding an extension directly to the album link, or by doing the same thing but also changing the domain
+					 * to imgur's 'i.imgur.com' CDN; after recovery this album link can be turned into the correct direct link
+					 */
+					const modifiedUrl = `https://imgur.com/a/${imgurDirectRegex.exec(img)[1]}`;
+					try {
+						const response = await rp(modifiedUrl);
+						if(imgur404Regex.test(response)) 
+						{
+							escapedLinks.push(`<${img}>`);
+							return;
+						}
+					} catch(e) {
+						console.log(e.stack);
+						escapedLinks.push(`<${img}>`);
+						return;
+					}
+					img = modifiedUrl;
 				}
-				//await message.delete(); //maybe idk
-				return message.channel.send(messageBody);
+				if(imgurAlbumRegex.test(img))
+				{
+					const response = await rp(img);
+					const itemCount = response.split(`album_images`)[1].split(`"count":`)[1].split(`,`)[0];
+					let messageBody = null;
+					if(itemCount == 1)
+					{
+						const link = imgurImgOrVideo.test(response) ? response.split(`<link rel="image_src" href="`)[1].split(`"`)[0]				    :
+																	  response.split(`<meta property="og:video"`)[1].split(`content="`)[1].split(`"`)[0];
+						escapedLinks.push(`<${link}>`);
+					} else {
+						const imageData = [...response.split(`album_images`)[1].split(`"images":[`)[1].split(`]},`)[0].matchAll(imgurUriRegex)];
+						const imageUris = imageData.map(hashAndExt => hashAndExt.slice(1).join(``));
+						const imageLinks = imageUris.map(uri => [imgurCdn,uri].join(``));
+						imageLinks.forEach(link => escapedLinks.push(`<${link}>`));
+					}
+					return;
+				}
+				return selfDeleteReply(message, `invalid link (<${oimg}>); I only eat imgur links`);
+			};
+			if(args.every(arg =>
+			{
+				const esc = escapedEmbedLink.test(arg) ? escapedEmbedLink.exec(arg)[1] : arg;
+				return imgurDirectRegex.test(esc) || imgurAlbumRegex.test(esc);
+			}))
+			{
+				for(let i = 0; i < args.length; i++)
+				{
+					await resolveDirect(args[i]);
+				}
+			} else {
+				await resolveDirect(args[0]);
 			}
-			return selfDeleteReply(message, `invalid link; I only eat imgur links`);
+			const messageBody = escapedLinks.join(`\n`);
+			message.channel.send(messageBody);
 		},
 		
 		"ios": async function() {
