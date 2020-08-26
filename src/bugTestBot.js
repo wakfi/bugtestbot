@@ -17,9 +17,10 @@ const authorReply = require(`${process.cwd()}/util/authorReply.js`);
 const arrayEquals = require(`${process.cwd()}/util/arrayEquals.js`);
 
 const imgurCdn = `https://i.imgur.com/`;
-const imgurDirectRegex = /https:\/\/(?:i\.)?imgur\.com\/(?:gallery\/|a\/)?([a-zA-Z0-9]{7})\..{3,4}/
+const escapedEmbedLink = /<(https:\/\/.*)>/;
+const imgurDirectRegex = /https:\/\/(?:i\.)?imgur\.com\/(?:gallery\/|a\/)?([a-zA-Z0-9]{7})\..{3,4}/;
 //potential alternate, need to verify imgur's valid extensions
-//const imgurDirectRegex = /https:\/\/(?:i\.)?imgur\.com\/(?:gallery\/|a\/)?([a-zA-Z0-9]{7})\.(?:png|jpg|jpeg|mp4|gif|gifv|webm)/i
+//const imgurDirectRegex = /https:\/\/(?:i\.)?imgur\.com\/(?:gallery\/|a\/)?([a-zA-Z0-9]{7})\.(?:png|jpg|jpeg|mp4|gif|gifv|webm)/;
 const imgurAlbumRegex = /imgur\.com\/(?:gallery\/|a\/)?[a-zA-Z0-9]{7}#?$/;
 const imgurImgOrVideo = /<link rel="image_src" href="/;
 const imgurUriRegex = /\{"hash":"([a-zA-Z0-9]{7})".*?"ext":"(\..{3,4}?).*?\}/g;
@@ -414,6 +415,7 @@ client.on("message", async message => {
 		
 		"dlink": async function() {
 			let img = args.join(' ');
+			if(escapedEmbedLink.test(img)) img = escapedEmbedLink.exec(img)[1];
 			if(imgurDirectRegex.test(img))
 			{
 				/*
