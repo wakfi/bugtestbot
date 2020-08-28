@@ -1,6 +1,6 @@
 const dashflagRegex = /(?<=\s|^)-([a-zA-Z]+)(?=\s|$)/g;
 const dashflagRegexNonGlobal = /(?<=\s|^)-([a-zA-Z]+)(?=\s|$)/;
-const doubleDashMatching = '[a-zA-Z]+';
+const doubleDashMatching = '[a-zA-Z-]+';
 const dashMatching = '[a-zA-Z]+';
 const dashflag = '-';
 
