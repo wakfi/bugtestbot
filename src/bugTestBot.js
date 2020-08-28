@@ -1,11 +1,14 @@
 function main(){
 //loads in Discord.js library
 const Discord = require('discord.js');
+const imgur = require('imgur');
 const nf = require('node-fetch');
 const rp = async (query) => await (await nf(query)).text(); //originally algorithm/approach written using request-promise, now deprecated. This lambda is for backwards compatability
 const clientOps = require('./components/clientOps.json');
 const client = new Discord.Client(clientOps);
-var d = new Date();
+const config = require("./components/config.json");
+let d = new Date();
+imgur.setClientId(config.imgur.id);
 
 const delay = require(`${process.cwd()}/util/delay.js`);
 const millisecondsToString = require(`${process.cwd()}/util/millisecondsToString.js`);
@@ -58,7 +61,6 @@ function fixLogs()
 }
 
 //this is the file that holds the login info, to keep it seperate from the source code for safety
-const config = require("./components/config.json");
 client.once("ready", async () => {
 	//fixLogs(); 
 	console.log(`Bot has started, with ${client.users.size} users, in ${client.channels.size} channels of ${client.guilds.size} guilds.`);
@@ -476,6 +478,30 @@ client.on("message", async message => {
 				await resolveDirect(args[0]);
 			}
 			const messageBody = escapedLinks.join(`\n`);
+			message.channel.send(messageBody);
+		},
+		
+		"up": async function() {commandLUT["upload"]},
+		"upload": async function() {
+			const imageLinks = [];
+			const uploadAttachment = async (attachment) =>
+			{
+				const image = await imgur.uploadUrl(attachment.url);
+				imageLinks.push(`<${image.data.link}>`);
+			};
+			if(message.attachments.size == 0) return selfDeleteReply(message, 'you must provide an image to upload');
+			if(message.attachments.size > 1)
+			{
+				const attachmentsArray = message.attachments.array();
+				const length = attachmentsArray.length;
+				for(let i = 0; i < length; i++)
+				{
+					await uploadAttachment(attachmentsArray[i]);
+				}
+			} else {
+				await uploadAttachment(message.attachments.first());
+			}
+			const messageBody = imageLinks.join('\n');
 			message.channel.send(messageBody);
 		},
 		
