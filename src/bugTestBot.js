@@ -244,6 +244,7 @@ client.on("message", async message => {
 			if(message.type === 'dm') return;
 			const pargs = parseArgs(args, {'title':['t','-title'], 'repro':['r','-repro-steps'], 'expected':['e','-expected'], 'actual':['a','-actual'], 'system':['s','-system'], 'client':['c','-client'], 'infosys':['i','-storedinfo']});
 			const { title,repro,expected,actual,system,client,infosys } = pargs;
+			console.log(JSON.stringify(pargs));
 			if(!(title && repro && expected && actual && client && (system || infosys)))
 			{
 				const missingFlags = [];
@@ -345,6 +346,7 @@ client.on("message", async message => {
 		},
 		
 		"rebuild": async function() {
+			if(args == false) return selfDeleteReply(message, 'you must supply arguments with this command');
 			const nargs = args.join(' ').split('\n');
 			const title = nargs.shift();
 			const esplit = nargs.join('\n').split('Expected Result');
