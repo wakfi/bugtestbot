@@ -15,4 +15,4 @@ jobs:
           username: ${{ secrets.USERNAME }}
           port: 22
           key: ${{ secrets.SSHKEY }}
-          script: cd ${{ secrets.PROJECTPATH }} && git pull origin master
+          script: cd ${{ secrets.PROJECTPATH }} && git pull origin master && npm i
