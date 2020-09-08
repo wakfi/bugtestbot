@@ -62,7 +62,7 @@ function fixLogs()
 
 //this is the file that holds the login info, to keep it seperate from the source code for safety
 client.once("ready", async () => {
-	//fixLogs(); 
+	fixLogs(); 
 	console.log(`Bot has started, with ${client.users.size} users, in ${client.channels.size} channels of ${client.guilds.size} guilds.`);
 	client.user.setActivity(`Time to catch bugs 🐞`);
 });
@@ -153,12 +153,12 @@ client.on("message", async message => {
 		
 		//gives the bot the appearance of speaking by deleting the command message and stealing the content. Will evevntually streamline for remote control (from terminal or dm)
 		"say": async function() {
-			const pargs = parseArgs(args, ['time','message'], ['in','m']);
+			const pargs = parseArgs(args, {'time':['in','time','i','t'],'message':['m','message','text']});
 			if(pargs.time)
 			{
 				const waitTime = pargs.time.split(' ').join('');
 				try {
-				 message.channel.send(`Waiting for ${printTimePretty(millisecondsToString(parseTime(waitTime)))}`);
+					message.channel.send(`Waiting for ${printTimePretty(millisecondsToString(parseTime(waitTime)))}`);
 				} catch(e) {
 					console.error(e.stack);
 					return message.channel.send(`Failed to parse: ${waitTime}`);
