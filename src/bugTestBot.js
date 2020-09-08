@@ -153,7 +153,7 @@ client.on("message", async message => {
 		
 		//gives the bot the appearance of speaking by deleting the command message and stealing the content. Will evevntually streamline for remote control (from terminal or dm)
 		"say": async function() {
-			const pargs = parseArgs(args, {'time':['in','time','i','t'],'message':['m','message','text']});
+			const pargs = parseArgs(args, {'time':['-in','-time','i','t'],'message':['m','-message']});
 			if(pargs.time)
 			{
 				const waitTime = pargs.time.split(' ').join('');
