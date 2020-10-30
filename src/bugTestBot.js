@@ -584,6 +584,14 @@ client.on("message", async message => {
 				}
 			}
 		},
+		
+		//only the specified users (the bot owner, usually) can user this, changes the status message
+		"status": async function() {
+			if(message.author.id == 193160566334947340) 
+			{
+				client.user.setActivity(args.join(" "));
+			}
+		},
 	}
 	
 	let log = true;
