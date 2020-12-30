@@ -205,11 +205,12 @@ client.on("message", async message => {
 		
 		"report": async function() {
 			if(message.type === 'dm') return;
+			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}report <messageID>\``, {sendStandard:true});
 			const rid = args.join(' ');
-			const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
-			await message.delete();
-			if(target)
-			{
+			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not snowflake`);
+			try {
+				const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
+				delay('3s', () => message.delete);
 				const reproRegex = /\n-/g
 				const embed = target.embeds[0];
 				const title = embed.title;
@@ -235,8 +236,8 @@ client.on("message", async message => {
 				const client = embed.fields[3].value;
 				const report = `!submit --title ${title} --repro-steps ${steps} --expected ${expect} --actual ${actual} ${system} --client ${client}`; //${system} IS NOT SUPPOSED TO HAVE A FLAG IN FRONT OF IT. It gets that from the switch (-i/-s)
 				message.channel.send('```\n' + report + '\n```');
-			} else {
-				return selfDeleteReply(message, `Couldn't find a report with message ID: \`${rid}\``);
+			} catch(e) {
+				return selfDeleteReply(message, `couldn't find a report with message ID: \`${rid}\``);
 			}
 		},
 		
@@ -254,7 +255,7 @@ client.on("message", async message => {
 				if(!actual) missingFlags.push('--actual');
 				if(!system) missingFlags.push('--system');
 				if(!client) missingFlags.push('--client');
-				return authorReply(message, `Missing flags:\`${missingFlags.join('`, `')}\`\n\nHere is your command:\n\`\`\`${message.content}\`\`\``);
+				return authorReply(message, `Missing flags: \`${missingFlags.join('`, `')}\`\n\nHere is your command:\n\`\`\`${message.content}\`\`\``);
 			}
 			if(!system)
 			{
@@ -299,12 +300,13 @@ client.on("message", async message => {
 		
 		"edit": async function() {
 			if(message.type === 'dm') return;
+			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}edit <messageID> <DBug edit syntax>\``);
 			const pargs = parseArgs(args, {'title':['t','-title'], 'repro':['r','-repro-steps'], 'expected':['e','-expected'], 'actual':['a','-actual'], 'system':['s','-system'], 'client':['c','-client']});
 			const rid = pargs.args.join(' ');
-			const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
-			await message.delete();
-			if(target)
-			{
+			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not snowflake`);
+			try  {
+				const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
+				delay('3s', message.delete);
 				const { title,repro,expected,actual,system,client } = pargs;
 				const embed = new Discord.RichEmbed(target.embeds[0]);
 				if(!(title || repro || expected || actual || client || system)) return selfDeleteReply(message, 'You need to include one or more flag(s)');
@@ -321,17 +323,18 @@ client.on("message", async message => {
 				if(client) embed.fields[3].value = client;
 				await target.edit(embed);
 				selfDeleteReply(message, `Updated report at ${rid}`);
-			} else {
-				selfDeleteReply(message, `Couldn't find a report with message ID: \`${rid}\``);
+			} catch(e) {
+				return selfDeleteReply(message, `Couldn't find a report with message ID: \`${rid}\``);
 			}
 		},
 		
 		"nuke": async function() {
 			if(message.type === 'dm') return;
+			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}nuke <messageID>\``);
 			const input = args.join(' ');
+			if(!/^\d+$/.test(input)) return selfDeleteReply(message, `input \`${input}\` is not snowflake`);
 			try {
 				const target = await message.guild.channels.get('712972942451015683').fetchMessage(input);
-				if(!target) return selfDeleteReply(message, `could not find report\n> ${input}`);
 				if(target && target.deletable)
 				{
 					target.delete();
@@ -342,13 +345,12 @@ client.on("message", async message => {
 				await delay('3s');
 				await message.delete();
 			} catch(e) {
-				console.error(e.stack);
-				return selfDeleteReply(message, `an error occurred with your input\n> ${input}`);
+				return selfDeleteReply(message, `could not find report\n> ${input}`);
 			}
 		},
 		
 		"rebuild": async function() {
-			if(args == false) return selfDeleteReply(message, 'you must supply arguments with this command');
+			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}rebuild <copy & pasted text from report embed>\``);
 			const nargs = args.join(' ').split('\n');
 			const title = nargs.shift();
 			const esplit = nargs.join('\n').split('Expected Result');
@@ -553,6 +555,7 @@ client.on("message", async message => {
 		},
 		
 		"sayin10seconds": async function() {
+			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}sayIn10Seconds <text to say>\``);
 			let ping = new Promise((resolve,reject) =>
 			{
 				let timeToDelay = 10000;
