@@ -3,6 +3,11 @@ const Message = require((require.resolve('discord.js')).split(path.sep).slice(0,
 const MessageEmbed = require((require.resolve('discord.js')).split(path.sep).slice(0, -1).join(path.sep) + `${path.sep}structures${path.sep}MessageEmbed.js`);
 const delay = require('./delay.js');
 
+/** Options
+ * Options include all options for discord.js TextChannel.send() MessageOptions
+ * @property sendStandard [boolean]: send as standard message instead of as reply message
+ */
+ 
 function selfDeleteReply(message, input, options)
 {
 	return new Promise(async (resolve,reject) =>
@@ -17,8 +22,9 @@ function selfDeleteReply(message, input, options)
 		if(input instanceof MessageEmbed) {emb = input;input='';}
 		else {emb = options.embed;}
 		if(input) {options.content = input; input = ''}
+		if(!options.allowedMentions) options.allowedMentions = {parse:options.parse,users:options.users,roles:options.roles}
 		input = options.content;
-		const messageOptions = {embed:emb, allowedMentions:{parse:options.mentionTypes,users:options.mentionUsers,roles:options.mentionRoles},content:options.content,tts:options.tts,nonce:options.nonce,files:options.files,code:options.code,split:options.split,reply:options.replyTo};
+		const messageOptions = {embed:emb, allowedMentions:options.allowedMentions,content:options.content,tts:options.tts,nonce:options.nonce,files:options.files,code:options.code,split:options.split,reply:options.reply};
 		const errReply = (options.sendStandard) ? await message.channel.send(input, messageOptions) : await message.reply(input, messageOptions);
 		if(duration == 0) resolve();
 		await delay(duration);
