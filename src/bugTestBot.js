@@ -210,7 +210,7 @@ client.on("message", async message => {
 			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not snowflake`);
 			try {
 				const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
-				delay('3s', () => message.delete);
+				delay('3s', () => {message.delete()});
 				const reproRegex = /\n-/g
 				const embed = target.embeds[0];
 				const title = embed.title;
@@ -292,24 +292,24 @@ client.on("message", async message => {
 				.setColor(0xFF00FF);
 			const sent = await message.guild.channels.get('712972942451015683').send(embed);
 			selfDeleteReply(message, `Submitted your report!`);
-			await delay('3s');
-			await message.delete();
+			delay('3s', () => {message.delete()});
 			await sent.react('735712895601606686');
 			await sent.react('735713063529087066');
 		},
 		
 		"edit": async function() {
 			if(message.type === 'dm') return;
-			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}edit <messageID> <DBug edit syntax>\``);
+			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}edit <messageID> <DBug edit syntax>\``, {sendStandard:true});
 			const pargs = parseArgs(args, {'title':['t','-title'], 'repro':['r','-repro-steps'], 'expected':['e','-expected'], 'actual':['a','-actual'], 'system':['s','-system'], 'client':['c','-client']});
 			const rid = pargs.args.join(' ');
+			if(rid.length == 0) return selfDeleteReply(message, `you must provide a message ID`);
 			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not snowflake`);
 			try  {
 				const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
-				delay('3s', message.delete);
+				delay('3s', () => {message.delete()});
 				const { title,repro,expected,actual,system,client } = pargs;
 				const embed = new Discord.RichEmbed(target.embeds[0]);
-				if(!(title || repro || expected || actual || client || system)) return selfDeleteReply(message, 'You need to include one or more flag(s)');
+				if(!(title || repro || expected || actual || client || system)) return selfDeleteReply(message, `you need to include one or more flags`);
 				if(title) embed.setTitle(title);
 				if(repro)
 				{
@@ -322,15 +322,15 @@ client.on("message", async message => {
 				if(system) embed.fields[2].value = system;
 				if(client) embed.fields[3].value = client;
 				await target.edit(embed);
-				selfDeleteReply(message, `Updated report at ${rid}`);
+				selfDeleteReply(message, `updated report at ${rid}`);
 			} catch(e) {
-				return selfDeleteReply(message, `Couldn't find a report with message ID: \`${rid}\``);
+				return selfDeleteReply(message, `couldn't find a report with message ID: \`${rid}\``);
 			}
 		},
 		
 		"nuke": async function() {
 			if(message.type === 'dm') return;
-			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}nuke <messageID>\``);
+			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}nuke <messageID>\``, {sendStandard:true});
 			const input = args.join(' ');
 			if(!/^\d+$/.test(input)) return selfDeleteReply(message, `input \`${input}\` is not snowflake`);
 			try {
@@ -342,15 +342,14 @@ client.on("message", async message => {
 				} else {
 					selfDeleteReply(message, `Couldn't find a report with message ID: \`${args.join(' ')}\``);
 				}
-				await delay('3s');
-				await message.delete();
+				delay('3s', () => {message.delete()});
 			} catch(e) {
 				return selfDeleteReply(message, `could not find report\n> ${input}`);
 			}
 		},
 		
 		"rebuild": async function() {
-			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}rebuild <copy & pasted text from report embed>\``);
+			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}rebuild <copy & pasted text from report embed>\``, {sendStandard:true});
 			const nargs = args.join(' ').split('\n');
 			const title = nargs.shift();
 			const esplit = nargs.join('\n').split('Expected Result');
@@ -555,7 +554,7 @@ client.on("message", async message => {
 		},
 		
 		"sayin10seconds": async function() {
-			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}sayIn10Seconds <text to say>\``);
+			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}sayIn10Seconds <text to say>\``, {sendStandard:true});
 			let ping = new Promise((resolve,reject) =>
 			{
 				let timeToDelay = 10000;
