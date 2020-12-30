@@ -290,8 +290,9 @@ client.on("message", async message => {
 				.setTimestamp(new Date())
 				.setColor(0xFF00FF);
 			const sent = await message.guild.channels.get('712972942451015683').send(embed);
-			await message.delete();
 			selfDeleteReply(message, `Submitted your report!`);
+			await delay('3s');
+			await message.delete();
 			await sent.react('735712895601606686');
 			await sent.react('735713063529087066');
 		},
@@ -330,18 +331,19 @@ client.on("message", async message => {
 			const input = args.join(' ');
 			try {
 				const target = await message.guild.channels.get('712972942451015683').fetchMessage(input);
+				if(!target) return selfDeleteReply(message, `could not find report\n> ${input}`);
+				if(target && target.deletable)
+				{
+					target.delete();
+					selfDeleteReply(message, `I killed the report with 🔥`);
+				} else {
+					selfDeleteReply(message, `Couldn't find a report with message ID: \`${args.join(' ')}\``);
+				}
+				await delay('3s');
+				await message.delete();
 			} catch(e) {
 				console.error(e.stack);
 				return selfDeleteReply(message, `an error occurred with your input\n> ${input}`);
-			}
-			if(!target) return selfDeleteReply(message, `could not find report\n> ${input}`);
-			await message.delete();
-			if(target)
-			{
-				await target.delete();
-				selfDeleteReply(message, `I killed the report with 🔥`);
-			} else {
-				selfDeleteReply(message, `Couldn't find a report with message ID: \`${args.join(' ')}\``);
 			}
 		},
 		
@@ -429,7 +431,7 @@ client.on("message", async message => {
 			message.channel.send(embed);
 		},
 		
-		"dlink": async function() {
+		"dlink": async function() { return; // broken due to imgur website design update
 			const escapedLinks = [];
 			const resolveDirect = async (img) => {
 				if(escapedEmbedLink.test(img)) img = escapedEmbedLink.exec(img)[1];
