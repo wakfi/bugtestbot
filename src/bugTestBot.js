@@ -207,7 +207,7 @@ client.on("message", async message => {
 			if(message.type === 'dm') return;
 			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}report <messageID>\``, {sendStandard:true});
 			const rid = args.join(' ');
-			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not snowflake`);
+			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
 			try {
 				const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
 				delay('3s', () => {message.delete()});
@@ -303,7 +303,7 @@ client.on("message", async message => {
 			const pargs = parseArgs(args, {'title':['t','-title'], 'repro':['r','-repro-steps'], 'expected':['e','-expected'], 'actual':['a','-actual'], 'system':['s','-system'], 'client':['c','-client']});
 			const rid = pargs.args.join(' ');
 			if(rid.length == 0) return selfDeleteReply(message, `you must provide a message ID`);
-			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not snowflake`);
+			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
 			try  {
 				const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
 				delay('3s', () => {message.delete()});
@@ -331,20 +331,21 @@ client.on("message", async message => {
 		"nuke": async function() {
 			if(message.type === 'dm') return;
 			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}nuke <messageID>\``, {sendStandard:true});
-			const input = args.join(' ');
-			if(!/^\d+$/.test(input)) return selfDeleteReply(message, `input \`${input}\` is not snowflake`);
+			const rid = args.join(' ');
+			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
 			try {
-				const target = await message.guild.channels.get('712972942451015683').fetchMessage(input);
+				const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
+				delay('3s', () => {message.delete()});
 				if(target && target.deletable)
 				{
+					if(target.author.id != client.user.id) return selfDeleteReply(message, `\`${config.prefix}nuke\` cannot be used on target message`);
 					target.delete();
 					selfDeleteReply(message, `I killed the report with 🔥`);
 				} else {
 					selfDeleteReply(message, `Couldn't find a report with message ID: \`${args.join(' ')}\``);
 				}
-				delay('3s', () => {message.delete()});
 			} catch(e) {
-				return selfDeleteReply(message, `could not find report\n> ${input}`);
+				return selfDeleteReply(message, `couldn't find a report with message ID: \`${rid}\``);
 			}
 		},
 		
