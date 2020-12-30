@@ -1,5 +1,5 @@
 const dashflagRegex = /(?<=\s|^)-([a-zA-Z]+)(?=\s|$)/g;
-const doubleDashMatching = '[a-zA-Z]+';
+const doubleDashMatching = '[a-zA-Z-]+';
 const dashMatching = '[a-zA-Z]+';
 const dashflag = '-';
 

@@ -20,6 +20,7 @@ const authorReply = require(`${process.cwd()}/util/authorReply.js`);
 const arrayEquals = require(`${process.cwd()}/util/arrayEquals.js`);
 
 const imgurCdn = `https://i.imgur.com/`;
+const imgurUploadFormatRegex = /\.(?:png|jpg|jpeg|gif)$/;
 const imgur404Regex = /s\.\imgur\.com\/images\/404/;
 const escapedEmbedLink = /<(https:\/\/.*)>/;
 const imgurDirectRegex = /https:\/\/(?:i\.)?imgur\.com\/(?:gallery\/|a\/)?([a-zA-Z0-9]{7})\..{3,4}/;
@@ -124,13 +125,6 @@ client.on("message", async message => {
 	
 	if(message.author.bot) return;	
 	
-	if(message.channel.id == '712972942451015683')
-	{
-		await message.react('735712895601606686');
-		await message.react('735713063529087066');
-	}
-
-	
 	if(message.content.indexOf(config.prefix) !== 0) return;
 	
 	// commands from users using prefix go below here
@@ -212,11 +206,12 @@ client.on("message", async message => {
 		
 		"report": async function() {
 			if(message.type === 'dm') return;
+			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}report <messageID>\``, {sendStandard:true});
 			const rid = args.join(' ');
-			const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
-			await message.delete();
-			if(target)
-			{
+			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
+			try {
+				const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
+				delay('3s', () => {message.delete()});
 				const reproRegex = /\n-/g
 				const embed = target.embeds[0];
 				const title = embed.title;
@@ -242,8 +237,8 @@ client.on("message", async message => {
 				const client = embed.fields[3].value;
 				const report = `!submit --title ${title} --repro-steps ${steps} --expected ${expect} --actual ${actual} ${system} --client ${client}`; //${system} IS NOT SUPPOSED TO HAVE A FLAG IN FRONT OF IT. It gets that from the switch (-i/-s)
 				message.channel.send('```\n' + report + '\n```');
-			} else {
-				return selfDeleteReply(message, `Couldn't find a report with message ID: \`${rid}\``);
+			} catch(e) {
+				return selfDeleteReply(message, `couldn't find a report with message ID: \`${rid}\``);
 			}
 		},
 		
@@ -251,7 +246,17 @@ client.on("message", async message => {
 			if(message.type === 'dm') return;
 			const pargs = parseArgs(args, {'title':['t','-title'], 'repro':['r','-repro-steps'], 'expected':['e','-expected'], 'actual':['a','-actual'], 'system':['s','-system'], 'client':['c','-client'], 'infosys':['i','-storedinfo']});
 			const { title,repro,expected,actual,system,client,infosys } = pargs;
-			if(!(title && repro && expected && actual && client && (system || infosys))) return authorReply(message, `Missing flags\nHere is your command:\`\`\`${message.content}\`\`\``);
+			if(!(title && repro && expected && actual && client && (system || infosys)))
+			{
+				const missingFlags = [];
+				if(!title) missingFlags.push('--title');
+				if(!repro) missingFlags.push('--repro-steps');
+				if(!expected) missingFlags.push('--expected');
+				if(!actual) missingFlags.push('--actual');
+				if(!system) missingFlags.push('--system');
+				if(!client) missingFlags.push('--client');
+				return authorReply(message, `Missing flags: \`${missingFlags.join('`, `')}\`\n\nHere is your command:\n\`\`\`${message.content}\`\`\``);
+			}
 			if(!system)
 			{
 				pargs.system = (function(info) 
@@ -286,23 +291,25 @@ client.on("message", async message => {
 				.setTimestamp(new Date())
 				.setColor(0xFF00FF);
 			const sent = await message.guild.channels.get('712972942451015683').send(embed);
-			await message.delete();
-			selfDeleteReply(message, `Submitted your report!`);
+			selfDeleteReply(message, `your report has been submitted!`);
+			delay('4s', () => {message.delete()});
 			await sent.react('735712895601606686');
 			await sent.react('735713063529087066');
 		},
 		
 		"edit": async function() {
 			if(message.type === 'dm') return;
+			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}edit <messageID> <DBug edit syntax>\``, {sendStandard:true});
 			const pargs = parseArgs(args, {'title':['t','-title'], 'repro':['r','-repro-steps'], 'expected':['e','-expected'], 'actual':['a','-actual'], 'system':['s','-system'], 'client':['c','-client']});
 			const rid = pargs.args.join(' ');
-			const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
-			await message.delete();
-			if(target)
-			{
+			if(rid.length == 0) return selfDeleteReply(message, `you must provide a message ID`);
+			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
+			try  {
+				const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
+				delay('3s', () => {message.delete()});
 				const { title,repro,expected,actual,system,client } = pargs;
 				const embed = new Discord.RichEmbed(target.embeds[0]);
-				if(!(title || repro || expected || actual || client || system)) return selfDeleteReply(message, 'You need to include one or more flag(s)');
+				if(!(title || repro || expected || actual || client || system)) return selfDeleteReply(message, `you need to include one or more flags`);
 				if(title) embed.setTitle(title);
 				if(repro)
 				{
@@ -315,41 +322,51 @@ client.on("message", async message => {
 				if(system) embed.fields[2].value = system;
 				if(client) embed.fields[3].value = client;
 				await target.edit(embed);
-				selfDeleteReply(message, `Updated report at ${rid}`);
-			} else {
-				selfDeleteReply(message, `Couldn't find a report with message ID: \`${rid}\``);
+				selfDeleteReply(message, `updated report at ${rid}`);
+			} catch(e) {
+				return selfDeleteReply(message, `couldn't find a report with message ID: \`${rid}\``);
 			}
 		},
 		
 		"nuke": async function() {
 			if(message.type === 'dm') return;
-			const target = await message.guild.channels.get('712972942451015683').fetchMessage(args.join(' '));
-			await message.delete();
-			if(target)
-			{
-				await target.delete();
-				selfDeleteReply(message, `I killed the report with 🔥`);
-			} else {
-				selfDeleteReply(message, `Couldn't find a report with message ID: \`${args.join(' ')}\``);
+			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}nuke <messageID>\``, {sendStandard:true});
+			const rid = args.join(' ');
+			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
+			try {
+				const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
+				delay('3s', () => {message.delete()});
+				if(target && target.deletable)
+				{
+					if(target.author.id != client.user.id) return selfDeleteReply(message, `\`${config.prefix}nuke\` cannot be used on target message`);
+					target.delete();
+					selfDeleteReply(message, `I killed the report with 🔥`);
+				} else {
+					selfDeleteReply(message, `couldn't find a report with message ID: \`${args.join(' ')}\``);
+				}
+			} catch(e) {
+				return selfDeleteReply(message, `couldn't find a report with message ID: \`${rid}\``);
 			}
 		},
 		
 		"rebuild": async function() {
-			if(message.type === 'dm') return;
-			const sargs = args.join(' ').split('-');
-			const title = sargs.shift().replace('\n','');
-			const nsplit = sargs.pop().split('\n');
-			sargs.push(nsplit.shift());
-			const reproRegex = /\s*\n-/g
-			const steps = sargs.join('-').slice(1).replace(reproRegex, ' ~');
-			nsplit.shift();
-			const expect = nsplit.shift();
-			nsplit.shift();
-			const actual = nsplit.shift();
-			nsplit.shift();
-			const system = nsplit.shift();
-			nsplit.shift();
-			const client = nsplit.shift();
+			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}rebuild <copy & pasted text from report embed>\``, {sendStandard:true});
+			const nargs = args.join(' ').split('\n');
+			const title = nargs.shift();
+			const esplit = nargs.join('\n').split('Expected Result');
+			const repro = esplit.shift().trim();
+			const sargs = ['', ...esplit].join('Expected Result').split('\n');
+			const reproRegex = /\s*\n-/g;
+			const leadingTildeRegex = /^\s*~\s?/;
+			const steps = repro.slice(2).replace(reproRegex, ' ~').replace(leadingTildeRegex, '');
+			sargs.shift();
+			const expect = sargs.shift();
+			sargs.shift();
+			const actual = sargs.shift();
+			sargs.shift();
+			const system = sargs.shift();
+			sargs.shift();
+			const client = sargs.shift();
 			const report = `!submit --title ${title} --repro-steps ${steps} --expected ${expect} --actual ${actual} --system ${system} --client ${client}`;
 			message.channel.send('```\n' + report + '\n```');
 		},
@@ -416,7 +433,7 @@ client.on("message", async message => {
 			message.channel.send(embed);
 		},
 		
-		"dlink": async function() {
+		"dlink": async function() { return; // broken due to imgur website design update
 			const escapedLinks = [];
 			const resolveDirect = async (img) => {
 				if(escapedEmbedLink.test(img)) img = escapedEmbedLink.exec(img)[1];
@@ -489,14 +506,18 @@ client.on("message", async message => {
 				const image = await imgur.uploadUrl(attachment.url);
 				imageLinks.push(`<${image.data.link}>`);
 			};
-			if(message.attachments.size == 0) return selfDeleteReply(message, 'you must provide an image to upload');
+			if(message.attachments.size == 0) return selfDeleteReply(message, `you must provide an image to upload`);
+			if(!imgurUploadFormatRegex.test(message.attachments.first().filename)) return selfDeleteReply(message, `I can only upload these image formats: PNG, JPG/JPEG, GIF`);
 			if(message.attachments.size > 1)
 			{
 				const attachmentsArray = message.attachments.array();
 				const length = attachmentsArray.length;
 				for(let i = 0; i < length; i++)
 				{
-					await uploadAttachment(attachmentsArray[i]);
+					if(imgurUploadFormatRegex.test(attachmentsArray[i].filename))
+					{
+						await uploadAttachment(attachmentsArray[i]);
+					}
 				}
 			} else {
 				await uploadAttachment(message.attachments.first());
@@ -538,6 +559,7 @@ client.on("message", async message => {
 		},
 		
 		"sayin10seconds": async function() {
+			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}sayIn10Seconds <text to say>\``, {sendStandard:true});
 			let ping = new Promise((resolve,reject) =>
 			{
 				let timeToDelay = 10000;
