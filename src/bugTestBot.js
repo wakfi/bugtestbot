@@ -291,8 +291,8 @@ client.on("message", async message => {
 				.setTimestamp(new Date())
 				.setColor(0xFF00FF);
 			const sent = await message.guild.channels.get('712972942451015683').send(embed);
-			selfDeleteReply(message, `Submitted your report!`);
-			delay('3s', () => {message.delete()});
+			selfDeleteReply(message, `your report has been submitted!`);
+			delay('4s', () => {message.delete()});
 			await sent.react('735712895601606686');
 			await sent.react('735713063529087066');
 		},
@@ -342,7 +342,7 @@ client.on("message", async message => {
 					target.delete();
 					selfDeleteReply(message, `I killed the report with 🔥`);
 				} else {
-					selfDeleteReply(message, `Couldn't find a report with message ID: \`${args.join(' ')}\``);
+					selfDeleteReply(message, `couldn't find a report with message ID: \`${args.join(' ')}\``);
 				}
 			} catch(e) {
 				return selfDeleteReply(message, `couldn't find a report with message ID: \`${rid}\``);
