@@ -20,6 +20,7 @@ const authorReply = require(`${process.cwd()}/util/authorReply.js`);
 const arrayEquals = require(`${process.cwd()}/util/arrayEquals.js`);
 
 const imgurCdn = `https://i.imgur.com/`;
+const imgurUploadFormatRegex = /\.(?:png|jpg|jpeg|gif)$/;
 const imgur404Regex = /s\.\imgur\.com\/images\/404/;
 const escapedEmbedLink = /<(https:\/\/.*)>/;
 const imgurDirectRegex = /https:\/\/(?:i\.)?imgur\.com\/(?:gallery\/|a\/)?([a-zA-Z0-9]{7})\..{3,4}/;
@@ -245,7 +246,6 @@ client.on("message", async message => {
 			if(message.type === 'dm') return;
 			const pargs = parseArgs(args, {'title':['t','-title'], 'repro':['r','-repro-steps'], 'expected':['e','-expected'], 'actual':['a','-actual'], 'system':['s','-system'], 'client':['c','-client'], 'infosys':['i','-storedinfo']});
 			const { title,repro,expected,actual,system,client,infosys } = pargs;
-			console.log(JSON.stringify(pargs));
 			if(!(title && repro && expected && actual && client && (system || infosys)))
 			{
 				const missingFlags = [];
@@ -506,14 +506,18 @@ client.on("message", async message => {
 				const image = await imgur.uploadUrl(attachment.url);
 				imageLinks.push(`<${image.data.link}>`);
 			};
-			if(message.attachments.size == 0) return selfDeleteReply(message, 'you must provide an image to upload');
+			if(message.attachments.size == 0) return selfDeleteReply(message, `you must provide an image to upload`);
+			if(!imgurUploadFormatRegex.test(message.attachments.first().filename)) return selfDeleteReply(message, `I can only upload these image formats: PNG, JPG/JPEG, GIF`);
 			if(message.attachments.size > 1)
 			{
 				const attachmentsArray = message.attachments.array();
 				const length = attachmentsArray.length;
 				for(let i = 0; i < length; i++)
 				{
-					await uploadAttachment(attachmentsArray[i]);
+					if(imgurUploadFormatRegex.test(attachmentsArray[i].filename))
+					{
+						await uploadAttachment(attachmentsArray[i]);
+					}
 				}
 			} else {
 				await uploadAttachment(message.attachments.first());
