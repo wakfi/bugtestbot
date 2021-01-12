@@ -1,4 +1,4 @@
-const linkRegex = /^<?(https?:\/\/.+)>?$/;
+const linkRegex = /^<?(https?:\/\/.+?)>?$/;
 
 function parseLink(url)
 {
