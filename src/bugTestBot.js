@@ -14,13 +14,17 @@ const delay = require(`${process.cwd()}/util/delay.js`);
 const millisecondsToString = require(`${process.cwd()}/util/millisecondsToString.js`);
 const parseArgs = require(`${process.cwd()}/util/parseArgs.js`);
 const parseTime = require(`${process.cwd()}/util/parseTime.js`);
+const parseLink = require(`${process.cwd()}/util/parseLink.js`);
 const printTimePretty = require(`${process.cwd()}/util/printTimePretty.js`);
 const selfDeleteReply = require(`${process.cwd()}/util/selfDeleteReply.js`);
 const authorReply = require(`${process.cwd()}/util/authorReply.js`);
 const arrayEquals = require(`${process.cwd()}/util/arrayEquals.js`);
 
-const imgurCdn = `https://i.imgur.com/`;
 const imgurUploadFormatRegex = /\.(?:png|jpg|jpeg|gif)$/;
+const leadingDashRegex = /^\s*-\s?/;
+const reproStepRegex = /\s*\n-/g;
+
+const imgurCdn = `https://i.imgur.com/`;
 const imgur404Regex = /s\.\imgur\.com\/images\/404/;
 const escapedEmbedLink = /<(https:\/\/.*)>/;
 const imgurDirectRegex = /https:\/\/(?:i\.)?imgur\.com\/(?:gallery\/|a\/)?([a-zA-Z0-9]{7})\..{3,4}/;
@@ -29,6 +33,8 @@ const imgurDirectRegex = /https:\/\/(?:i\.)?imgur\.com\/(?:gallery\/|a\/)?([a-zA
 const imgurAlbumRegex = /imgur\.com\/(?:gallery\/|a\/)?[a-zA-Z0-9]{7}#?$/;
 const imgurImgOrVideo = /<link rel="image_src" href="/;
 const imgurUriRegex = /\{"hash":"([a-zA-Z0-9]{7})".*?"ext":"(\..{3,4}?).*?\}/g;
+
+const util = require(`util`);
 
 //adds timestamps to log outputs
 function fixLogs()
@@ -215,7 +221,7 @@ client.on("message", async message => {
 				const reproRegex = /\n-/g
 				const embed = target.embeds[0];
 				const title = embed.title;
-				const steps = embed.description.slice(2).replace(reproRegex, ' ~');
+				const steps = embed.description.slice(2).replace(reproRegex, ' -');
 				const expect = embed.fields[0].value;
 				const actual = embed.fields[1].value;
 				const system = (function(info) 
@@ -276,7 +282,7 @@ client.on("message", async message => {
 					}
 				})(infosys);
 			}
-			const stepsRegex = / ~/g;
+			const stepsRegex = / -/g;
 			const steps = '- ' + repro.replace(stepsRegex, '\n-');
 			const author = message.author;
 			const embed = new Discord.RichEmbed()
@@ -297,6 +303,56 @@ client.on("message", async message => {
 			await sent.react('735713063529087066');
 		},
 		
+		"create": async function() {
+			const pargs = parseArgs(args, {'title':['t','-title'], 'repro':['r','-repro-steps'], 'expected':['e','-expected'], 'actual':['a','-actual'], 'system':['s','-system'], 'client':['c','-client'], 'infosys':['i','-storedinfo']});
+			const { title,repro,expected,actual,system,client,infosys } = pargs;
+			if(!(title && repro && expected && actual && client && (system || infosys)))
+			{
+				const missingFlags = [];
+				if(!title) missingFlags.push('--title');
+				if(!repro) missingFlags.push('--repro-steps');
+				if(!expected) missingFlags.push('--expected');
+				if(!actual) missingFlags.push('--actual');
+				if(!system) missingFlags.push('--system');
+				if(!client) missingFlags.push('--client');
+				return authorReply(message, `Missing flags: \`${missingFlags.join('`, `')}\`\n\nHere is your command:\n\`\`\`${message.content}\`\`\``);
+			}
+			if(!system)
+			{
+				pargs.system = (function(info) 
+				{
+					switch(info)
+					{
+						case 'mac':
+							return 'saved Mac system info';
+						case 'windows':
+							return 'saved Windows system info';
+						case 'android':
+							return 'saved Android system info';
+						case 'ios':
+							return 'saved iOS system info';
+						default:
+							return `unknown system "${info}"`;
+					}
+				})(infosys);
+			}
+			const stepsRegex = / -/g;
+			const steps = '- ' + repro.replace(stepsRegex, '\n-');
+			const author = message.author;
+			const embed = new Discord.RichEmbed()
+				.setAuthor(`${author.username}#${author.discriminator} (${author.id})`)
+				.setTitle(title)
+				.setDescription(steps)
+				.addField(`Expected Result`, expected)
+				.addField(`Actual Result`, actual)
+				.addField(`System Settings`, system || pargs.system)
+				.addField(`Client Settings`, client)
+				.setFooter(`#000`)
+				.setTimestamp(new Date())
+				.setColor(0xFF00FF);
+			await message.channel.send(embed);
+		},
+		
 		"edit": async function() {
 			if(message.type === 'dm') return;
 			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}edit <messageID> <DBug edit syntax>\``, {sendStandard:true});
@@ -313,7 +369,7 @@ client.on("message", async message => {
 				if(title) embed.setTitle(title);
 				if(repro)
 				{
-					const stepsRegex = / ~/g;
+					const stepsRegex = / -/g;
 					const steps = '- ' + repro.replace(stepsRegex, '\n-');
 					embed.setDescription(steps);
 				}
@@ -356,9 +412,7 @@ client.on("message", async message => {
 			const esplit = nargs.join('\n').split('Expected Result');
 			const repro = esplit.shift().trim();
 			const sargs = ['', ...esplit].join('Expected Result').split('\n');
-			const reproRegex = /\s*\n-/g;
-			const leadingTildeRegex = /^\s*~\s?/;
-			const steps = repro.slice(2).replace(reproRegex, ' ~').replace(leadingTildeRegex, '');
+			const steps = repro.slice(2).replace(reproStepRegex, ' -').replace(leadingDashRegex, '');
 			sargs.shift();
 			const expect = sargs.shift();
 			sargs.shift();
@@ -371,15 +425,15 @@ client.on("message", async message => {
 			message.channel.send('```\n' + report + '\n```');
 		},
 		
-		"approve": async function(){commandLUT["canrepro"]},
-		"cr": async function(){commandLUT["canrepro"]},
+		"approve": async function(){commandLUT["canrepro"]()},
+		"cr": async function(){commandLUT["canrepro"]()},
 		"canrepro": async function() {
 			if(message.type === 'dm') return;
 			
 		},
 		
-		"deny": async function(){commandLUT["cantrepro"]},
-		"cnr": async function(){commandLUT["cantrepro"]},
+		"deny": async function(){commandLUT["cantrepro"]()},
+		"cnr": async function(){commandLUT["cantrepro"]()},
 		"cantrepro": async function(){
 			if(message.type === 'dm') return;
 			
@@ -406,29 +460,29 @@ client.on("message", async message => {
 			const footerAvatar = pargs.footerAvatar;
 			const timestamp = pargs.timestamp === 'now' ? Date.now() : pargs.timestamp;
 			const image = pargs.image;
-			let rargs = [...pargs.args];
+			let remainingArgs = [...pargs.args];
 			const embed = new Discord.RichEmbed();
-			if(author) embed.setAuthor(author,avatar);
-			if(thumbnail) embed.setThumbnail(thumbnail);
+			if(author) embed.setAuthor(author, parseLink(avatar));
+			if(thumbnail) embed.setThumbnail(parseLink(thumbnail));
 			if(color) embed.setColor(color);
 			if(title) embed.setTitle(title);
 			if(description) embed.setDescription(description);
-			if(url) embed.setURL(url);
-			if(footer) embed.setFooter(footer,footerAvatar);
+			if(url) embed.setURL(parseLink(url));
+			if(footer) embed.setFooter(footer, parseLink(footerAvatar));
 			if(timestamp !== undefined) embed.setTimestamp(Number(timestamp));
-			if(image) embed.setImage(image);
-			while(rargs != false)
+			if(image) embed.setImage(parseLink(image));
+			while(remainingArgs != false)
 			{
-				const fargs = parseArgs(rargs, {'name':'n','value':'v','inline':['e','-inline']});
-				if(fargs.name !== undefined || fargs.value !== undefined)
+				const fieldArgs = parseArgs(remainingArgs, {'name':'n','value':'v','inline':['e','-inline']});
+				if(fieldArgs.name !== undefined || fieldArgs.value !== undefined)
 				{
-					const name = fargs.name || '\u200B';
-					const value = fargs.value || '\u200B';
-					const inline = fargs.inline;
+					const name = fieldArgs.name || '\u200B';
+					const value = fieldArgs.value || '\u200B';
+					const inline = fieldArgs.inline;
 					embed.addField(name, value, inline);
 				}
-				if(arrayEquals(rargs,fargs.args)) break;
-				rargs = [...fargs.args];
+				if(arrayEquals(remainingArgs,fieldArgs.args)) break;
+				remainingArgs = [...fieldArgs.args];
 			}
 			message.channel.send(embed);
 		},
@@ -498,13 +552,18 @@ client.on("message", async message => {
 			message.channel.send(messageBody);
 		},
 		
-		"up": async function() {commandLUT["upload"]},
+		"up": async function() {commandLUT["upload"]()},
 		"upload": async function() {
 			const imageLinks = [];
 			const uploadAttachment = async (attachment) =>
 			{
-				const image = await imgur.uploadUrl(attachment.url);
-				imageLinks.push(`<${image.data.link}>`);
+				try {	
+					const image = await imgur.uploadUrl(attachment.url);
+					imageLinks.push(`<${image.data.link}>`);
+				} catch(e) {
+					console.log(`Error while uploading an image`);
+					console.error(util.inspect(e, {depth:5}));
+				}
 			};
 			if(message.attachments.size == 0) return selfDeleteReply(message, `you must provide an image to upload`);
 			if(!imgurUploadFormatRegex.test(message.attachments.first().filename)) return selfDeleteReply(message, `I can only upload these image formats: PNG, JPG/JPEG, GIF`);
@@ -549,6 +608,7 @@ client.on("message", async message => {
 			message.channel.send(`Renamed ${oldName} to ${args.join(" ")}`);
 		},
 		
+		"pingme": async function() {commandLUT["pingmein"]()},
 		"pingmein": async function() {
 			let ping = new Promise((resolve,reject) =>
 			{
@@ -622,7 +682,7 @@ client.on("message", async message => {
 	execute();
 });
 
-client.on('error', e => console.error(e.message));
+client.on('error', e => console.error(e.stack));
 
 //executes the function to log the client into discord
 client.login(config.token);
