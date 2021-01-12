@@ -156,17 +156,19 @@ client.on("message", async message => {
 			const pargs = parseArgs(args, {'time':['-in','-time','i','t'],'message':['m','-message']});
 			if(pargs.time)
 			{
-				const waitTime = pargs.time.split(' ').join('');
+				const timeInput = pargs.time.split(' ').join('');
+				const waitTime = isNaN(Number(timeInput)) ? timeInput : Number(timeInput) * 1000;
 				try {
 					message.channel.send(`Waiting for ${printTimePretty(millisecondsToString(parseTime(waitTime)))}`);
 				} catch(e) {
 					console.error(e.stack);
-					return message.channel.send(`Failed to parse: ${waitTime}`);
+					return message.channel.send(`Failed to parse: ${timeInput}`);
 				}
 				await delay(waitTime);
+			} else {
+				if(message.channel.type != 'dm') message.delete().catch(O_o=>{console.error(O_o)});
 			}
 			const sayMessage = pargs.message || pargs.args.join(' ');
-			if(message.channel.type != 'dm') message.delete().catch(O_o=>{console.error(O_o)});
 			message.channel.send(sayMessage).catch(err=>{});
 		},
 
@@ -612,7 +614,8 @@ client.on("message", async message => {
 		"pingmein": async function() {
 			let ping = new Promise((resolve,reject) =>
 			{
-				let timeToDelay = +args.shift() * 1000;
+				const timeInput = args.shift();
+				const timeToDelay = isNaN(Number(timeInput)) ? parseTime(timeInput) : Number(timeInput) * 1000;
 				setTimeout(function(){resolve(message.channel.send(`${message.author}`))}, timeToDelay);
 			});
 			await ping;
