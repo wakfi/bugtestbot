@@ -213,13 +213,26 @@ client.on("message", async message => {
 		},
 		
 		"report": async function() {
-			if(message.type === 'dm') return;
 			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}report <messageID>\``, {sendStandard:true});
-			const rid = args.join(' ');
+			let channelId = message.channel.id;
+			let dargs = args;
+			if(dargs.join(' ').includes('-'))
+			{
+				dargs = dargs.join(' ').split('-');
+				channelId = dargs.shift();
+			}
+			const rid = dargs.join(' ');
+			if(!/^\d+$/.test(channelId)) return selfDeleteReply(message, `input \`${channelId}\` is not a snowflake`);
 			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
 			try {
-				const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
-				delay('3s', () => {message.delete()});
+				let testTarget = null;
+				try {
+					testTarget = await message.guild.channels.get(channelId).fetchMessage(rid);
+				} catch(e) {
+					testTarget = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
+				}
+				const target = testTarget;
+				delay('10s', () => {message.delete()});
 				const reproRegex = /\n-/g
 				const embed = target.embeds[0];
 				const title = embed.title;
@@ -238,6 +251,8 @@ client.on("message", async message => {
 							return '--storedinfo android';
 						case 'saved iOS system info':
 							return '--storedinfo ios';
+						case 'saved Linux system info':
+							return '--storedinfo linux';
 						default:
 							return `--system ${info}`;
 					}
@@ -246,11 +261,12 @@ client.on("message", async message => {
 				const report = `!submit --title ${title} --repro-steps ${steps} --expected ${expect} --actual ${actual} ${system} --client ${client}`; //${system} IS NOT SUPPOSED TO HAVE A FLAG IN FRONT OF IT. It gets that from the switch (-i/-s)
 				message.channel.send('```\n' + report + '\n```');
 			} catch(e) {
-				return selfDeleteReply(message, `couldn't find a report with message ID: \`${rid}\``);
+				return selfDeleteReply(message, `couldn't find a report with ID: \`${channelId==message.channel.id?rid:`${channelId}-${rid}`}\``);
 			}
 		},
 		
-		"submit": async function() {
+		// original !submit command
+		"queue": async function() {
 			if(message.type === 'dm') return;
 			const pargs = parseArgs(args, {'title':['t','-title'], 'repro':['r','-repro-steps'], 'expected':['e','-expected'], 'actual':['a','-actual'], 'system':['s','-system'], 'client':['c','-client'], 'infosys':['i','-storedinfo']});
 			const { title,repro,expected,actual,system,client,infosys } = pargs;
@@ -279,6 +295,8 @@ client.on("message", async message => {
 							return 'saved Android system info';
 						case 'ios':
 							return 'saved iOS system info';
+						case 'linux':
+							return 'saved Linux system info';
 						default:
 							return `unknown system "${info}"`;
 					}
@@ -305,7 +323,9 @@ client.on("message", async message => {
 			await sent.react('735713063529087066');
 		},
 		
-		"create": async function() {
+		// original !create command
+		"create": async function(){commandLUT["submit"]()},
+		"submit": async function() {
 			const pargs = parseArgs(args, {'title':['t','-title'], 'repro':['r','-repro-steps'], 'expected':['e','-expected'], 'actual':['a','-actual'], 'system':['s','-system'], 'client':['c','-client'], 'infosys':['i','-storedinfo']});
 			const { title,repro,expected,actual,system,client,infosys } = pargs;
 			if(!(title && repro && expected && actual && client && (system || infosys)))
@@ -333,6 +353,8 @@ client.on("message", async message => {
 							return 'saved Android system info';
 						case 'ios':
 							return 'saved iOS system info';
+						case 'linux':
+							return 'saved Linux system info';
 						default:
 							return `unknown system "${info}"`;
 					}
@@ -359,12 +381,26 @@ client.on("message", async message => {
 			if(message.type === 'dm') return;
 			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}edit <messageID> <DBug edit syntax>\``, {sendStandard:true});
 			const pargs = parseArgs(args, {'title':['t','-title'], 'repro':['r','-repro-steps'], 'expected':['e','-expected'], 'actual':['a','-actual'], 'system':['s','-system'], 'client':['c','-client']});
-			const rid = pargs.args.join(' ');
+			let channelId = message.channel.id;
+			let dargs = pargs.args;
+			if(dargs.join(' ').includes('-'))
+			{
+				dargs = dargs.join(' ').split('-');
+				channelId = dargs.shift();
+			}
+			const rid = dargs.join(' ');
 			if(rid.length == 0) return selfDeleteReply(message, `you must provide a message ID`);
+			if(!/^\d+$/.test(channelId)) return selfDeleteReply(message, `input \`${channelId}\` is not a snowflake`);
 			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
 			try  {
-				const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
-				delay('3s', () => {message.delete()});
+				let testTarget = null;
+				try {
+					testTarget = await message.guild.channels.get(channelId).fetchMessage(rid);
+				} catch(e) {
+					testTarget = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
+				}
+				const target = testTarget;
+				delay('10s', () => {message.delete()});
 				const { title,repro,expected,actual,system,client } = pargs;
 				const embed = new Discord.RichEmbed(target.embeds[0]);
 				if(!(title || repro || expected || actual || client || system)) return selfDeleteReply(message, `you need to include one or more flags`);
@@ -380,9 +416,9 @@ client.on("message", async message => {
 				if(system) embed.fields[2].value = system;
 				if(client) embed.fields[3].value = client;
 				await target.edit(embed);
-				selfDeleteReply(message, `updated report at ${rid}`);
+				selfDeleteReply(message, `updated report at ${channelId==message.channel.id?rid:`${channelId}-${rid}`}`);
 			} catch(e) {
-				return selfDeleteReply(message, `couldn't find a report with message ID: \`${rid}\``);
+				return selfDeleteReply(message, `couldn't find a report with ID: \`${channelId==message.channel.id?rid:`${channelId}-${rid}`}\``);
 			}
 		},
 		
