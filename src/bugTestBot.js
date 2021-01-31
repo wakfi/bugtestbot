@@ -103,7 +103,7 @@ client.on(`raw`, packet =>
 
 function reactionAdd(reaction, user) 
 {
-	if(reaction.emoji == '📌')
+	if(reaction.message.guild.id !== '765611756441436160' && reaction.emoji == '📌')
 	{
 		if(reaction.count == 1)
 		{
@@ -114,7 +114,7 @@ function reactionAdd(reaction, user)
 
 function reactionRemove(reaction, user)
 {
-	if(reaction.emoji == '📌')
+	if(reaction.message.guild.id !== '765611756441436160' && reaction.emoji == '📌')
 	{
 		if(reaction.count == 0)
 		{
@@ -175,6 +175,11 @@ client.on("message", async message => {
 		
 		//utilizes a bulk message deltion feature available to bots, able to do up to 100 messages at once, minimum 3. Adjusted to erase command message as well
 		"purge": async function() {
+			if(message.guild.id === '765611756441436160')
+			{
+				// Guild is DTT, cannot be available until more sophistacted permission system is implemented
+				return;
+			}
 			if(message.author.id != 193160566334947340)
 				return authorReply(message,`Sorry, you don't have permissions to use this!`);
 			// This command removes all messages from all users in the channel, up to 100
@@ -632,6 +637,11 @@ client.on("message", async message => {
 		},
 		
 		"deletehook": async function() {
+			if(message.guild.id === '765611756441436160')
+			{
+				// Guild is DTT, cannot be available until more sophistacted permission system is implemented
+				return;
+			}
 			let hooks = await message.channel.fetchWebhooks();
 			let hook = hooks.first();
 			hook.delete();
@@ -639,6 +649,11 @@ client.on("message", async message => {
 		},
 		
 		"edithook": async function() {
+			if(message.guild.id === '765611756441436160')
+			{
+				// Guild is DTT, cannot be available until more sophistacted permission system is implemented
+				return;
+			}
 			let hooks = await message.channel.fetchWebhooks();
 			let hook = hooks.first();
 			let oldName = hook.name;
@@ -668,6 +683,11 @@ client.on("message", async message => {
 		},
 		
 		"addrole": async function() {
+			if(message.guild.id === '765611756441436160')
+			{
+				// Guild is DTT, cannot be available until more sophistacted permission system is implemented
+				return;
+			}
 			if(message.author.id == 193160566334947340)
 			{
 				try {
@@ -679,6 +699,11 @@ client.on("message", async message => {
 		},
 		
 		"removerole": async function() {
+			if(message.guild.id === '765611756441436160')
+			{
+				// Guild is DTT, cannot be available until more sophistacted permission system is implemented
+				return;
+			}
 			if(message.author.id == 193160566334947340)
 			{
 				try {
