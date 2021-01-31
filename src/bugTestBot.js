@@ -374,11 +374,22 @@ client.on("message", async message => {
 			if(message.type === 'dm') return;
 			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}edit <messageID> <DBug edit syntax>\``, {sendStandard:true});
 			const pargs = parseArgs(args, {'title':['t','-title'], 'repro':['r','-repro-steps'], 'expected':['e','-expected'], 'actual':['a','-actual'], 'system':['s','-system'], 'client':['c','-client']});
+			let channelId = message.channel.id;
+			if(pargs.join(' ') !== pargs.join(' ').split('-').join(' '))
+			{
+				channelId = args.join(' ').split('-').unshift();
+			}
 			const rid = pargs.args.join(' ');
 			if(rid.length == 0) return selfDeleteReply(message, `you must provide a message ID`);
 			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
 			try  {
-				const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
+				let testTarget = null;
+				try {
+					testTarget = await message.guild.channels.get(channelId).fetchMessage(rid);
+				} catch(e) {
+					testTarget = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
+				}
+				const target = testTarget;
 				delay('3s', () => {message.delete()});
 				const { title,repro,expected,actual,system,client } = pargs;
 				const embed = new Discord.RichEmbed(target.embeds[0]);
