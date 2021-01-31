@@ -250,6 +250,8 @@ client.on("message", async message => {
 							return '--storedinfo android';
 						case 'saved iOS system info':
 							return '--storedinfo ios';
+						case 'saved Linux system info':
+							return '--storedinfo linux';
 						default:
 							return `--system ${info}`;
 					}
@@ -292,6 +294,8 @@ client.on("message", async message => {
 							return 'saved Android system info';
 						case 'ios':
 							return 'saved iOS system info';
+						case 'linux':
+							return 'saved Linux system info';
 						default:
 							return `unknown system "${info}"`;
 					}
@@ -348,6 +352,8 @@ client.on("message", async message => {
 							return 'saved Android system info';
 						case 'ios':
 							return 'saved iOS system info';
+						case 'linux':
+							return 'saved Linux system info';
 						default:
 							return `unknown system "${info}"`;
 					}
