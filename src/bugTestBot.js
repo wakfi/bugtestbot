@@ -250,7 +250,8 @@ client.on("message", async message => {
 			}
 		},
 		
-		"submit": async function() {
+		// original !submit command
+		"queue": async function() {
 			if(message.type === 'dm') return;
 			const pargs = parseArgs(args, {'title':['t','-title'], 'repro':['r','-repro-steps'], 'expected':['e','-expected'], 'actual':['a','-actual'], 'system':['s','-system'], 'client':['c','-client'], 'infosys':['i','-storedinfo']});
 			const { title,repro,expected,actual,system,client,infosys } = pargs;
@@ -305,7 +306,9 @@ client.on("message", async message => {
 			await sent.react('735713063529087066');
 		},
 		
-		"create": async function() {
+		// original !create command
+		"create": async function(){commandLUT["submit"]()},
+		"submit": async function() {
 			const pargs = parseArgs(args, {'title':['t','-title'], 'repro':['r','-repro-steps'], 'expected':['e','-expected'], 'actual':['a','-actual'], 'system':['s','-system'], 'client':['c','-client'], 'infosys':['i','-storedinfo']});
 			const { title,repro,expected,actual,system,client,infosys } = pargs;
 			if(!(title && repro && expected && actual && client && (system || infosys)))
