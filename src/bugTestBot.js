@@ -215,11 +215,23 @@ client.on("message", async message => {
 		"report": async function() {
 			if(message.type === 'dm') return;
 			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}report <messageID>\``, {sendStandard:true});
+			let channelId = message.channel.id;
+			if(args.join(' ') !== args.join(' ').split('-').join(' '))
+			{
+				channelId = args.join(' ').split('-').unshift();
+			}
 			const rid = args.join(' ');
+			if(!/^\d+$/.test(channelId)) return selfDeleteReply(message, `input \`${channelId}\` is not a snowflake`);
 			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
 			try {
-				const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
-				delay('3s', () => {message.delete()});
+				let testTarget = null;
+				try {
+					testTarget = await message.guild.channels.get(channelId).fetchMessage(rid);
+				} catch(e) {
+					testTarget = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
+				}
+				const target = testTarget;
+				delay('10s', () => {message.delete()});
 				const reproRegex = /\n-/g
 				const embed = target.embeds[0];
 				const title = embed.title;
