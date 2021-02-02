@@ -23,6 +23,8 @@ const arrayEquals = require(`${process.cwd()}/util/arrayEquals.js`);
 const imgurUploadFormatRegex = /\.(?:png|jpg|jpeg|gif)$/;
 const leadingDashRegex = /^\s*-\s?/;
 const reproStepRegex = /\s*\n-/g;
+const channelRegex = /^<#(\d+)>$/;
+const snowflakeRegex = /^\d+$/;
 
 const imgurCdn = `https://i.imgur.com/`;
 const imgur404Regex = /s\.\imgur\.com\/images\/404/;
@@ -70,7 +72,7 @@ function fixLogs()
 //this is the file that holds the login info, to keep it seperate from the source code for safety
 client.once("ready", async () => {
 	fixLogs(); 
-	console.log(`Bot has started, with ${client.users.size} users, in ${client.channels.size} channels of ${client.guilds.size} guilds.`);
+	console.log(`${client.user.username} has started, with ${client.users.size} users, in ${client.channels.size} channels of ${client.guilds.size} guilds.`);
 	client.user.setActivity(`Time to catch bugs 🐞`);
 });
 
@@ -227,8 +229,8 @@ client.on("message", async message => {
 				channelId = dargs.shift();
 			}
 			const rid = dargs.join(' ');
-			if(!/^\d+$/.test(channelId)) return selfDeleteReply(message, `input \`${channelId}\` is not a snowflake`);
-			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
+			if(!snowflakeRegex.test(channelId)) return selfDeleteReply(message, `input \`${channelId}\` is not a snowflake`);
+			if(!snowflakeRegex.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
 			try {
 				let testTarget = null;
 				try {
@@ -395,8 +397,8 @@ client.on("message", async message => {
 			}
 			const rid = dargs.join(' ');
 			if(rid.length == 0) return selfDeleteReply(message, `you must provide a message ID`);
-			if(!/^\d+$/.test(channelId)) return selfDeleteReply(message, `input \`${channelId}\` is not a snowflake`);
-			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
+			if(!snowflakeRegex.test(channelId)) return selfDeleteReply(message, `input \`${channelId}\` is not a snowflake`);
+			if(!snowflakeRegex.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
 			try  {
 				let testTarget = null;
 				try {
@@ -431,7 +433,7 @@ client.on("message", async message => {
 			if(message.type === 'dm') return;
 			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}nuke <messageID>\``, {sendStandard:true});
 			const rid = args.join(' ');
-			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
+			if(!snowflakeRegex.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
 			try {
 				const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
 				delay('3s', () => {message.delete()});
@@ -634,6 +636,29 @@ client.on("message", async message => {
 			const messageContent = args.join(' ');
 			const cleanContent = messageContent.replace(apostropheRegex, `'`).replace(quoteRegex, `"`);
 			message.channel.send('```\n' + cleanContent + '\n```').catch(console.error);
+		},
+		
+		"createhook": async function() {
+			if(message.guild.id === '765611756441436160')
+			{
+				// Guild is DTT, cannot be available until more sophistacted permission system is implemented
+				return;
+			}
+			const pargs = parseArgs(args, {'channel':['c','-channel'], 'name':['n', '-name'], 'avatar':['a', '-avatar'], 'reason':['r', '-reason']});
+			const channelInput = pargs.channel || message.channel.id;
+			const name = pargs.name || pargs.args.join('') || `${client.user.username} Hook (${Date.now()})`;
+			const avatar = pargs.avatar || undefined; // optional, default none
+			const reason = pargs.reason || undefined; // optional, default none
+			const channelId = channelRegex.test(channelInput) ? channelRegex.exec(channelInput)[1] : channelInput;
+			if(!snowflakeRegex.test(channelId) || !message.guild.channels.has(channelId)) return selfDeleteReply(message, `"${channelInput}" could not be resolved to a channel`);
+			const channel = message.guild.channels.get(channelId);
+			try {
+				const hook = await channel.createWebhook(name, avatar, reason);
+				await selfDeleteReply(message, `created webhook \`${hook.name}\` in <#${hook.channelID}>`, `30s`);
+			} catch(e) {
+				console.error(`in createhook:\n\t${e.stack}`)
+				selfDeleteReply(message, `I ran into an error while trying to create the webhook!`);
+			}
 		},
 		
 		"deletehook": async function() {
