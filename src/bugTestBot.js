@@ -1,14 +1,13 @@
 function main(){
 //loads in Discord.js library
 const Discord = require('discord.js');
-const imgur = require('imgur');
-const nf = require('node-fetch');
-const rp = async (query) => await (await nf(query)).text(); //originally algorithm/approach written using request-promise, now deprecated. This lambda is for backwards compatability
+const fetch = require('node-fetch');
+const FormData = require('form-data');
+const rp = async (query) => await (await fetch(query)).text(); //originally algorithm/approach written using request-promise, now deprecated. This lambda is for backwards compatability
 const clientOps = require('./components/clientOps.json');
 const client = new Discord.Client(clientOps);
 const config = require("./components/config.json");
 let d = new Date();
-imgur.setClientId(config.imgur.id);
 
 const delay = require(`${process.cwd()}/util/delay.js`);
 const millisecondsToString = require(`${process.cwd()}/util/millisecondsToString.js`);
@@ -20,10 +19,14 @@ const selfDeleteReply = require(`${process.cwd()}/util/selfDeleteReply.js`);
 const authorReply = require(`${process.cwd()}/util/authorReply.js`);
 const arrayEquals = require(`${process.cwd()}/util/arrayEquals.js`);
 
-const imgurUploadFormatRegex = /\.(?:png|jpg|jpeg|gif)$/;
+const imgurUploadFormatRegex = /^.+\.(?:png|jpg|jpeg|gif|mp4|webm|mov|mpe?g|flv|wmv)(\?.+?=.*?)*$/;
+const linkRegex = /^<?https?:\/\/.+?>?$/;
 const leadingDashRegex = /^\s*-\s?/;
 const reproStepRegex = /\s*\n-/g;
+const channelRegex = /^<#(\d+)>$/;
+const snowflakeRegex = /^\d+$/;
 
+const imgurUpEndpoint = `https://api.imgur.com/3/upload`;
 const imgurCdn = `https://i.imgur.com/`;
 const imgur404Regex = /s\.\imgur\.com\/images\/404/;
 const escapedEmbedLink = /<(https:\/\/.*)>/;
@@ -33,8 +36,7 @@ const imgurDirectRegex = /https:\/\/(?:i\.)?imgur\.com\/(?:gallery\/|a\/)?([a-zA
 const imgurAlbumRegex = /imgur\.com\/(?:gallery\/|a\/)?[a-zA-Z0-9]{7}#?$/;
 const imgurImgOrVideo = /<link rel="image_src" href="/;
 const imgurUriRegex = /\{"hash":"([a-zA-Z0-9]{7})".*?"ext":"(\..{3,4}?).*?\}/g;
-
-const util = require(`util`);
+const linkIsVideo = /^.*\.(mp4|webm|mov|mpe?g|flv|wmv)$/;
 
 //adds timestamps to log outputs
 function fixLogs()
@@ -70,7 +72,7 @@ function fixLogs()
 //this is the file that holds the login info, to keep it seperate from the source code for safety
 client.once("ready", async () => {
 	fixLogs(); 
-	console.log(`Bot has started, with ${client.users.size} users, in ${client.channels.size} channels of ${client.guilds.size} guilds.`);
+	console.log(`${client.user.username} has started, with ${client.users.size} users, in ${client.channels.size} channels of ${client.guilds.size} guilds.`);
 	client.user.setActivity(`Time to catch bugs 🐞`);
 });
 
@@ -227,8 +229,8 @@ client.on("message", async message => {
 				channelId = dargs.shift();
 			}
 			const rid = dargs.join(' ');
-			if(!/^\d+$/.test(channelId)) return selfDeleteReply(message, `input \`${channelId}\` is not a snowflake`);
-			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
+			if(!snowflakeRegex.test(channelId)) return selfDeleteReply(message, `input \`${channelId}\` is not a snowflake`);
+			if(!snowflakeRegex.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
 			try {
 				let testTarget = null;
 				try {
@@ -395,8 +397,8 @@ client.on("message", async message => {
 			}
 			const rid = dargs.join(' ');
 			if(rid.length == 0) return selfDeleteReply(message, `you must provide a message ID`);
-			if(!/^\d+$/.test(channelId)) return selfDeleteReply(message, `input \`${channelId}\` is not a snowflake`);
-			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
+			if(!snowflakeRegex.test(channelId)) return selfDeleteReply(message, `input \`${channelId}\` is not a snowflake`);
+			if(!snowflakeRegex.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
 			try  {
 				let testTarget = null;
 				try {
@@ -431,7 +433,7 @@ client.on("message", async message => {
 			if(message.type === 'dm') return;
 			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}nuke <messageID>\``, {sendStandard:true});
 			const rid = args.join(' ');
-			if(!/^\d+$/.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
+			if(!snowflakeRegex.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
 			try {
 				const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
 				delay('3s', () => {message.delete()});
@@ -598,31 +600,46 @@ client.on("message", async message => {
 		"up": async function() {commandLUT["upload"]()},
 		"upload": async function() {
 			const imageLinks = [];
-			const uploadAttachment = async (attachment) =>
+			
+			const uploadAttachment = async (url) =>
 			{
-				try {	
-					const image = await imgur.uploadUrl(attachment.url);
-					imageLinks.push(`<${image.data.link}>`);
+				try {
+					const form = new FormData();
+					form.append(linkIsVideo.test(url) ? 'video' : 'image', url);
+					form.append('type', 'url');
+					const image = await (await fetch(imgurUpEndpoint, { method: 'post', body: form, headers: { 'Authorization': `Client-ID ${config.imgur.id}` } })).json();
+					if(image.status === 200)
+					{
+						imageLinks.push(`<${image.data.mp4 || image.data.link}>`);
+					} else {
+						console.log(`Error while uploading an image`);
+						console.log(`${image.status} ${image.data.error}`);
+					}
 				} catch(e) {
-					console.log(`Error while uploading an image`);
-					console.error(util.inspect(e, {depth:5}));
+					console.error(e.stack);
 				}
 			};
-			if(message.attachments.size == 0) return selfDeleteReply(message, `you must provide an image to upload`);
-			if(!imgurUploadFormatRegex.test(message.attachments.first().filename)) return selfDeleteReply(message, `I can only upload these image formats: PNG, JPG/JPEG, GIF`);
-			if(message.attachments.size > 1)
+			const inputLinks = [];
+			args.forEach(arg =>
 			{
-				const attachmentsArray = message.attachments.array();
-				const length = attachmentsArray.length;
-				for(let i = 0; i < length; i++)
+				if(linkRegex.test(arg))
 				{
-					if(imgurUploadFormatRegex.test(attachmentsArray[i].filename))
-					{
-						await uploadAttachment(attachmentsArray[i]);
-					}
+					inputLinks.push(parseLink(arg));
 				}
-			} else {
-				await uploadAttachment(message.attachments.first());
+			});
+			message.attachments.forEach(attachment =>
+			{
+				if(imgurUploadFormatRegex.test(attachment.filename))
+				{
+					inputLinks.push(attachment.url);
+				}
+			});
+			const length = inputLinks.length;
+			if(length === 0) return selfDeleteReply(message, `you must provide an image or video to upload`);
+			if(!imgurUploadFormatRegex.test(inputLinks[0])) return selfDeleteReply(message, `I can only upload these media formats: PNG, JPG/JPEG, GIF, MP4, WEBM, FLV, MPG/MPEG, WMV`);
+			for(let i = 0; i < length; i++)
+			{
+				await uploadAttachment(inputLinks[i]);
 			}
 			const messageBody = imageLinks.join('\n');
 			message.channel.send(messageBody);
