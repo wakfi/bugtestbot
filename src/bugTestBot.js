@@ -685,7 +685,10 @@ client.on("message", async message => {
 				const timeInput = args.shift();
 				const timeToDelay = isNaN(Number(timeInput)) ? parseTime(timeInput) : Number(timeInput) * 1000;
 				setTimeout(function(){resolve(message.channel.send(`${message.author}`))}, timeToDelay);
-				selfDeleteReply(message, `Ok! I'll ping you in ${printTimePretty(millisecondsToString(timeToDelay))}`, {sendStandard:true});
+				if(!isNaN(timeToDelay)) 
+				{
+					selfDeleteReply(message, `Ok! I'll ping you in ${printTimePretty(millisecondsToString(timeToDelay))}`, {sendStandard:true});
+				}
 			});
 			await ping;
 		},

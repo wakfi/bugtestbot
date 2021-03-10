@@ -23,6 +23,7 @@ const msReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))ms/
 function parseTime(timeToParse, options)
 {
 	let timeValue = timeToParse;
+	if(options === undefined) options = {};
 	if(isNaN(timeToParse))
 	{
 		const timeString = timeToParse;
