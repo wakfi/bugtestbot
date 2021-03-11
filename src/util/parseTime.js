@@ -1,7 +1,15 @@
 const isTimeFormat = require('./isTimeFormat.js');
 
+const yearReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))y/i;
+const weekReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))w/i;
+const dayReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))d/i;
+const hourReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))h/i;
+const minReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))m(?!s)/i;
+const secReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))s/i;
+const msReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))ms/i;
+
 /*
- parse time inputs with flexible syntax. accepts any mix of years, weeks, days, hours, minutes, seconds, milliseconds.
+ parse time accepts inputs with flexible syntax. accepts any mix of years, weeks, days, hours, minutes, seconds, milliseconds.
  does not accept months because how many days is a month anyways? why do you need that?
  
  1h15m30s200ms
@@ -12,7 +20,7 @@ const isTimeFormat = require('./isTimeFormat.js');
  1h30s
  15m30s
 */
-function parseTime(timeToParse)
+function parseTime(timeToParse, options)
 {
 	let timeValue = timeToParse;
 	if(isNaN(timeToParse))
@@ -20,16 +28,14 @@ function parseTime(timeToParse)
 		const timeString = timeToParse;
 		if(!isTimeFormat(timeString))
 		{
-			throw new SyntaxError('must be in the format 1d 2h 3m 4s 5ms (any segment is optional, such as `1h 1m` is valid)');
+			if(options.throwIfInvalid)
+			{
+				throw new TypeError('must be in the format 1d 2h 3m 4s 5ms (any segment is optional, such as `1h 1m` is valid)');
+			} else {
+				return NaN;
+			}
 		} else {
 			let match = null;
-			const yearReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))y/gi;
-			const weekReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))w/gi;
-			const dayReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))d/gi;
-			const hourReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))h/gi;
-			const minReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))m(?!s)/gi;
-			const secReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))s/gi;
-			const msReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))ms/gi;
 			let years = 0;
 			let weeks = 0;
 			let days = 0;
