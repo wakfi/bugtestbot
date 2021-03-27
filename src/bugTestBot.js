@@ -71,7 +71,7 @@ function fixLogs()
 
 //this is the file that holds the login info, to keep it seperate from the source code for safety
 client.once("ready", async () => {
-	fixLogs(); 
+	fixLogs();
 	console.log(`${client.user.username} has started, with ${client.users.size} users, in ${client.channels.size} channels of ${client.guilds.size} guilds.`);
 	client.user.setActivity(`Time to catch bugs 🐞`);
 });
@@ -79,46 +79,54 @@ client.once("ready", async () => {
 /*
  modified from https://github.com/AnIdiotsGuide/discordjs-bot-guide/blob/master/coding-guides/raw-events.md
 */
-client.on(`raw`, packet => 
+client.on(`raw`, async packet =>
 {
 	// We don't want this to run on unrelated packets
     if (!['MESSAGE_REACTION_ADD', 'MESSAGE_REACTION_REMOVE'].includes(packet.t)) return;
-    // Grab the channel to check the message from
-    const channel = client.channels.get(packet.d.channel_id);
-    // Let's fetch it
-    channel.fetchMessage(packet.d.message_id).then(message => {
-        // Emojis can have identifiers of name:id format, so we have to account for that case as well
-        const emoji = packet.d.emoji.id ? `${packet.d.emoji.name}:${packet.d.emoji.id}` : packet.d.emoji.name;
-        // This gives us the reaction we need to emit the event properly, in top of the message object
-        const reaction = message.reactions.get(emoji) || new Discord.MessageReaction(message, packet.d.emoji, 0, false);
-        // Adds the currently reacting user to the reaction's users collection.
-        // Check which type of event it is before emitting
-        if (packet.t === 'MESSAGE_REACTION_ADD') {
-			if (reaction) reaction.users.set(packet.d.user_id, client.users.get(packet.d.user_id));
-            reactionAdd(reaction, client.users.get(packet.d.user_id));//.then(()=>{}).catch(console.error);
-        }
-        if (packet.t === 'MESSAGE_REACTION_REMOVE') {
-            reactionRemove(reaction, client.users.get(packet.d.user_id));//.then(()=>{}).catch(console.error);
-        }
-    });
+	const data = packet.d;
+    // Grab the channel the message is from
+    const channel = await client.channels.fetch(data.channel_id);
+	const messageWasCached = channel.messages.cache.has(packet.d.message_id);
+    // Fetches & resolves with message if not cached or message in cache is a partial, otherwise resolves with cached message
+    const message = await channel.messages.fetch(data.message_id);
+	// Emojis can have identifiers of name:id format, so we have to account for that case as well
+	const emoji = data.emoji.id ? `${data.emoji.id}` : data.emoji.name;
+	// This gives us the reaction we need to emit the event properly, in top of the message object
+	const reaction = message.reactions.cache.get(emoji) || new Discord.MessageReaction(client, packet.d, 0, message);
+	if(!reaction) return;
+	reaction.message = message;
+	// Fetch and verify user
+	const user = await message.client.users.fetch(packet.d.user_id);
+	if(!user || user.bot) return;
+	// Check which type of event it is to select callback
+	if (packet.t === 'MESSAGE_REACTION_ADD')
+	{
+		// Adds the currently reacting user to the reaction's ReactionUserManager
+		if(!messageWasCached) reaction._add(user);
+		messageReactionAdd(reaction, user);
+	} else if(packet.t === 'MESSAGE_REACTION_REMOVE') {
+		// Removes the currently reacting user from the reaction's ReactionUserManager
+		if(!messageWasCached) reaction._remove(user);
+		messageReactionRemove(reaction, user);
+	}
 });
 
-function reactionAdd(reaction, user) 
+function messageReactionAdd(reaction, user)
 {
-	if(reaction.message.guild.id !== '765611756441436160' && reaction.emoji == '📌')
+	if(reaction.emoji.name === `📌`)
 	{
-		if(reaction.count == 1)
+		if(reaction.users.cache.size == 1)
 		{
 			reaction.message.pin().catch(console.error);
 		}
 	}
 }
 
-function reactionRemove(reaction, user)
+function messageReactionRemove(reaction, user)
 {
-	if(reaction.message.guild.id !== '765611756441436160' && reaction.emoji == '📌')
+	if(reaction.emoji.name === `📌`)
 	{
-		if(reaction.count == 0)
+		if(reaction.users.cache.size === undefined || reaction.users.cache.size === 0)
 		{
 			reaction.message.unpin().catch(console.error);
 		}
@@ -127,32 +135,32 @@ function reactionRemove(reaction, user)
 
 //this event triggers when a message is sent in a channel the bot has access to
 client.on("message", async message => {
-	
+
 	const args = message.content.slice(config.prefix.length).trim().split(/ +/g);
 	const command = args.shift().toLowerCase();
-	
-	if(message.author.bot) return;	
-	
+
+	if(message.author.bot) return;
+
 	if(message.content.indexOf(config.prefix) !== 0) return;
-	
+
 	// commands from users using prefix go below here
 	let commandLUT = {
 		//Emergency Kill switch, added after channel spam so that i would have a way other than ssh to stop it
 		"kill": async function() {
-			if(!message.author.id != 193160566334947340) {
+			if(message.author.id != 193160566334947340) {
 				return null;
 			} else {
 				process.exit(1);
 			}
 		},
-		
+
 		// Calculates ping between sending a message and editing it, giving a nice round-trip latency.
 		// The second ping is an average latency between the bot and the websocket server (one-way, not round-trip)
 		"ping": async function() {
 			const m = await message.channel.send("Ping?");
 			m.edit(`Pong! Latency is ${m.createdTimestamp - message.createdTimestamp}ms. API Latency is ${Math.round(client.ping)}ms`);
 		},
-		
+
 		//gives the bot the appearance of speaking by deleting the command message and stealing the content. Will evevntually streamline for remote control (from terminal or dm)
 		"say": async function() {
 			const pargs = parseArgs(args, {'time':['-in','-time','i','t'],'message':['m','-message']});
@@ -174,7 +182,6 @@ client.on("message", async message => {
 			message.channel.send(sayMessage).catch(err=>{});
 		},
 
-		
 		//utilizes a bulk message deltion feature available to bots, able to do up to 100 messages at once, minimum 3. Adjusted to erase command message as well
 		"purge": async function() {
 			if(message.guild.id === '765611756441436160')
@@ -185,20 +192,20 @@ client.on("message", async message => {
 			if(message.author.id != 193160566334947340)
 				return authorReply(message,`Sorry, you don't have permissions to use this!`);
 			// This command removes all messages from all users in the channel, up to 100
-			
+
 			// get the delete count, as an actual number.
 			const deleteCount = parseInt(args[0], 10) + 1;
-			
+
 			// Ooooh nice, combined conditions. <3
 			if(!deleteCount || deleteCount < 2 || deleteCount > 100)
 				return message.reply(`Please provide a number between 2 and 99 (inclusive) for the number of messages to delete`);
-			
+
 			// So we get our messages, and delete them. Simple enough, right?
-			const fetched = await message.channel.fetchMessages({count: deleteCount});
+			const fetched = await message.channel.messages.fetch({limit: deleteCount});
 			message.channel.bulkDelete(deleteCount)
 			.catch(error => message.reply(`Couldn't delete messages because of: ${error}`));
 		},
-		
+
 		//responds with the current time connected to the discord server in hh:mm:ss format. If hour exceeds 99, will adjust to triple digit, etc
 		"uptime": async function() {
 			function pad(n, z) {
@@ -218,7 +225,7 @@ client.on("message", async message => {
 			}
 			message.channel.send("I have been running for " + pad(hrs, p) + ':' + pad(mins) + ':' + pad(secs)).catch(err=>{});
 		},
-		
+
 		"report": async function() {
 			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}report <messageID>\``, {sendStandard:true});
 			let channelId = message.channel.id;
@@ -234,9 +241,9 @@ client.on("message", async message => {
 			try {
 				let testTarget = null;
 				try {
-					testTarget = await message.guild.channels.get(channelId).fetchMessage(rid);
+					testTarget = await message.guild.channels.resolve(channelId).messages.fetch(rid);
 				} catch(e) {
-					testTarget = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
+					testTarget = await message.guild.channels.resolve('712972942451015683').messages.fetch(rid);
 				}
 				const target = testTarget;
 				delay('10s', () => {message.delete()});
@@ -246,7 +253,7 @@ client.on("message", async message => {
 				const steps = embed.description.slice(2).replace(reproRegex, ' -');
 				const expect = embed.fields[0].value;
 				const actual = embed.fields[1].value;
-				const system = (function(info) 
+				const system = (function(info)
 				{
 					switch(info)
 					{
@@ -271,7 +278,57 @@ client.on("message", async message => {
 				return selfDeleteReply(message, `couldn't find a report with ID: \`${channelId==message.channel.id?rid:`${channelId}-${rid}`}\``);
 			}
 		},
-		
+
+		"focus": async function() {
+			const pargs = parseArgs(args, {'title':['t','-title'], 'repro':['r','-repro-steps'], 'expected':['e','-expected'], 'actual':['a','-actual'], 'system':['s','-system'], 'client':['c','-client'], 'infosys':['i','-storedinfo']});
+			const { title,repro,expected,actual,system,client,infosys } = pargs;
+			if(!(title && repro && expected && actual && client && (system || infosys)))
+			{
+				const missingFlags = [];
+				if(!title) missingFlags.push('--title');
+				if(!repro) missingFlags.push('--repro-steps');
+				if(!expected) missingFlags.push('--expected');
+				if(!actual) missingFlags.push('--actual');
+				if(!system) missingFlags.push('--system');
+				if(!client) missingFlags.push('--client');
+				return authorReply(message, `Missing flags: \`${missingFlags.join('`, `')}\`\n\nHere is your command:\n\`\`\`${message.content}\`\`\``);
+			}
+			if(!system)
+			{
+				pargs.system = (function(info)
+				{
+					switch(info)
+					{
+						case 'mac':
+							return 'saved Mac system info';
+						case 'windows':
+							return 'saved Windows system info';
+						case 'android':
+							return 'saved Android system info';
+						case 'ios':
+							return 'saved iOS system info';
+						case 'linux':
+							return 'saved Linux system info';
+						default:
+							return `unknown system "${info}"`;
+					}
+				})(infosys);
+			}
+			const stepsRegex = / -/g;
+			const steps = '- ' + repro.replace(stepsRegex, '\n-');
+			const report =
+`\`\`\`
+**Short Description:** ${title}
+**Steps to reproduce:**
+${steps}
+**Expected Results:** ${expected}
+**Actual Results:** ${actual}
+**Client Settings:** ${client}
+**System Settings:** ${system || pargs.system}
+\`\`\``;
+			const sent = await message.channel.send(report);
+		},
+
 		// original !submit command
 		"queue": async function() {
 			if(message.type === 'dm') return;
@@ -290,7 +347,7 @@ client.on("message", async message => {
 			}
 			if(!system)
 			{
-				pargs.system = (function(info) 
+				pargs.system = (function(info)
 				{
 					switch(info)
 					{
@@ -312,7 +369,7 @@ client.on("message", async message => {
 			const stepsRegex = / -/g;
 			const steps = '- ' + repro.replace(stepsRegex, '\n-');
 			const author = message.author;
-			const embed = new Discord.RichEmbed()
+			const embed = new Discord.MessageEmbed()
 				.setAuthor(`${author.username}#${author.discriminator} (${author.id})`)
 				.setTitle(title)
 				.setDescription(steps)
@@ -323,13 +380,13 @@ client.on("message", async message => {
 				.setFooter(`#000`)
 				.setTimestamp(new Date())
 				.setColor(0xFF00FF);
-			const sent = await message.guild.channels.get('712972942451015683').send(embed);
+			const sent = await message.guild.channels.resolve('712972942451015683').send(embed);
 			selfDeleteReply(message, `your report has been submitted!`);
 			delay('4s', () => {message.delete()});
 			await sent.react('735712895601606686');
 			await sent.react('735713063529087066');
 		},
-		
+
 		// original !create command
 		"create": async function(){commandLUT["submit"]()},
 		"submit": async function() {
@@ -348,7 +405,7 @@ client.on("message", async message => {
 			}
 			if(!system)
 			{
-				pargs.system = (function(info) 
+				pargs.system = (function(info)
 				{
 					switch(info)
 					{
@@ -370,7 +427,7 @@ client.on("message", async message => {
 			const stepsRegex = / -/g;
 			const steps = '- ' + repro.replace(stepsRegex, '\n-');
 			const author = message.author;
-			const embed = new Discord.RichEmbed()
+			const embed = new Discord.MessageEmbed()
 				.setAuthor(`${author.username}#${author.discriminator} (${author.id})`)
 				.setTitle(title)
 				.setDescription(steps)
@@ -383,7 +440,7 @@ client.on("message", async message => {
 				.setColor(0xFF00FF);
 			await message.channel.send(embed);
 		},
-		
+
 		"edit": async function() {
 			if(message.type === 'dm') return;
 			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}edit <messageID> <DBug edit syntax>\``, {sendStandard:true});
@@ -402,14 +459,14 @@ client.on("message", async message => {
 			try  {
 				let testTarget = null;
 				try {
-					testTarget = await message.guild.channels.get(channelId).fetchMessage(rid);
+					testTarget = await message.guild.channels.resolve(channelId).messages.fetch(rid);
 				} catch(e) {
-					testTarget = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
+					testTarget = await message.guild.channels.resolve('712972942451015683').messages.fetch(rid);
 				}
 				const target = testTarget;
 				delay('10s', () => {message.delete()});
 				const { title,repro,expected,actual,system,client } = pargs;
-				const embed = new Discord.RichEmbed(target.embeds[0]);
+				const embed = new Discord.MessageEmbed(target.embeds[0]);
 				if(!(title || repro || expected || actual || client || system)) return selfDeleteReply(message, `you need to include one or more flags`);
 				if(title) embed.setTitle(title);
 				if(repro)
@@ -428,14 +485,14 @@ client.on("message", async message => {
 				return selfDeleteReply(message, `couldn't find a report with ID: \`${channelId==message.channel.id?rid:`${channelId}-${rid}`}\``);
 			}
 		},
-		
+
 		"nuke": async function() {
 			if(message.type === 'dm') return;
 			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}nuke <messageID>\``, {sendStandard:true});
 			const rid = args.join(' ');
 			if(!snowflakeRegex.test(rid)) return selfDeleteReply(message, `input \`${rid}\` is not a snowflake`);
 			try {
-				const target = await message.guild.channels.get('712972942451015683').fetchMessage(rid);
+				const target = await message.guild.channels.resolve('712972942451015683').messages.fetch(rid);
 				delay('3s', () => {message.delete()});
 				if(target && target.deletable)
 				{
@@ -449,7 +506,7 @@ client.on("message", async message => {
 				return selfDeleteReply(message, `couldn't find a report with message ID: \`${rid}\``);
 			}
 		},
-		
+
 		"rebuild": async function() {
 			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}rebuild <copy & pasted text from report embed>\``, {sendStandard:true});
 			const nargs = args.join(' ').split('\n');
@@ -469,21 +526,21 @@ client.on("message", async message => {
 			const report = `!submit --title ${title} --repro-steps ${steps} --expected ${expect} --actual ${actual} --system ${system} --client ${client}`;
 			message.channel.send('```\n' + report + '\n```');
 		},
-		
+
 		"approve": async function(){commandLUT["canrepro"]()},
 		"cr": async function(){commandLUT["canrepro"]()},
 		"canrepro": async function() {
 			if(message.type === 'dm') return;
-			
+
 		},
-		
+
 		"deny": async function(){commandLUT["cantrepro"]()},
 		"cnr": async function(){commandLUT["cantrepro"]()},
 		"cantrepro": async function(){
 			if(message.type === 'dm') return;
-			
+
 		},
-		
+
 		"status": async function() {
 			if(message.author.id != 193160566334947340) {
 				return null;
@@ -491,7 +548,7 @@ client.on("message", async message => {
 				client.user.setActivity(args.join(" "));
 			}
 		},
-		
+
 		"embed": async function() {
 			const pargs = parseArgs(args, {'author':['a', '-author'], 'avatar':['p', '-author-avatar', '-author-picture'], 'color':['c', '-color'], 'thumbnail':['b', '-thumbnail'], 'title':['t', '-title'], 'description':['d', '-description'], 'url':['u', '-url', '-link'], 'footer':['f', '-footer'], 'footerAvatar':['o', '-footer-avatar', '-footer-picture', '--footer-icon'], 'timestamp':['s', '-timestamp'], 'image':['i', '-image']});
 			const author = pargs.author;
@@ -506,7 +563,7 @@ client.on("message", async message => {
 			const timestamp = pargs.timestamp === 'now' ? Date.now() : pargs.timestamp;
 			const image = pargs.image;
 			let remainingArgs = [...pargs.args];
-			const embed = new Discord.RichEmbed();
+			const embed = new Discord.MessageEmbed();
 			if(author) embed.setAuthor(author, parseLink(avatar));
 			if(thumbnail) embed.setThumbnail(parseLink(thumbnail));
 			if(color) embed.setColor(color);
@@ -531,7 +588,7 @@ client.on("message", async message => {
 			}
 			message.channel.send(embed);
 		},
-		
+
 		"dlink": async function() { return; // broken due to imgur website design update
 			const escapedLinks = [];
 			const resolveDirect = async (img) => {
@@ -548,7 +605,7 @@ client.on("message", async message => {
 					const modifiedUrl = `https://imgur.com/a/${imgurDirectRegex.exec(img)[1]}`;
 					try {
 						const response = await rp(modifiedUrl);
-						if(imgur404Regex.test(response)) 
+						if(imgur404Regex.test(response))
 						{
 							escapedLinks.push(`<${img}>`);
 							return;
@@ -596,11 +653,11 @@ client.on("message", async message => {
 			const messageBody = escapedLinks.join(`\n`);
 			message.channel.send(messageBody);
 		},
-		
+
 		"up": async function() {commandLUT["upload"]()},
 		"upload": async function() {
 			const imageLinks = [];
-			
+
 			const uploadAttachment = async (url) =>
 			{
 				try {
@@ -629,7 +686,7 @@ client.on("message", async message => {
 			});
 			message.attachments.forEach(attachment =>
 			{
-				if(imgurUploadFormatRegex.test(attachment.filename))
+				if(imgurUploadFormatRegex.test(attachment.name))
 				{
 					inputLinks.push(attachment.url);
 				}
@@ -644,7 +701,7 @@ client.on("message", async message => {
 			const messageBody = imageLinks.join('\n');
 			message.channel.send(messageBody);
 		},
-		
+
 		"ios": async function() {
 			const apostropheRegex = /’/g;
 			const quoteRegex = /[“”]/g;
@@ -652,7 +709,7 @@ client.on("message", async message => {
 			const cleanContent = messageContent.replace(apostropheRegex, `'`).replace(quoteRegex, `"`);
 			message.channel.send('```\n' + cleanContent + '\n```').catch(console.error);
 		},
-		
+
 		"deletehook": async function() {
 			if(message.guild.id === '765611756441436160')
 			{
@@ -664,7 +721,7 @@ client.on("message", async message => {
 			hook.delete();
 			message.channel.send(`Deleted ${hook.name}`);
 		},
-		
+
 		"edithook": async function() {
 			if(message.guild.id === '765611756441436160')
 			{
@@ -677,7 +734,7 @@ client.on("message", async message => {
 			hook.edit(args.join(" "));
 			message.channel.send(`Renamed ${oldName} to ${args.join(" ")}`);
 		},
-		
+
 		"pingme": async function() {commandLUT["pingmein"]()},
 		"pingmein": async function() {
 			let ping = new Promise((resolve,reject) =>
@@ -685,14 +742,14 @@ client.on("message", async message => {
 				const timeInput = args.shift();
 				const timeToDelay = isNaN(Number(timeInput)) ? parseTime(timeInput) : Number(timeInput) * 1000;
 				setTimeout(function(){resolve(message.channel.send(`${message.author}`))}, timeToDelay);
-				if(!isNaN(timeToDelay)) 
+				if(!isNaN(timeToDelay))
 				{
 					selfDeleteReply(message, `Ok! I'll ping you in ${printTimePretty(millisecondsToString(timeToDelay))}`, {sendStandard:true});
 				}
 			});
 			await ping;
 		},
-		
+
 		"sayin10seconds": async function() {
 			if(args.length == 0) return selfDeleteReply(message, `Usage: \`${config.prefix}sayIn10Seconds <text to say>\``, {sendStandard:true});
 			let ping = new Promise((resolve,reject) =>
@@ -702,7 +759,7 @@ client.on("message", async message => {
 			});
 			await ping;
 		},
-		
+
 		"addrole": async function() {
 			if(message.guild.id === '765611756441436160')
 			{
@@ -712,13 +769,13 @@ client.on("message", async message => {
 			if(message.author.id == 193160566334947340)
 			{
 				try {
-					message.member.addRole(args.join(' '));
+					await message.member.add(args.join(' '));
 				} catch (e) {
 					console.error(e);
 				}
 			}
 		},
-		
+
 		"removerole": async function() {
 			if(message.guild.id === '765611756441436160')
 			{
@@ -728,13 +785,13 @@ client.on("message", async message => {
 			if(message.author.id == 193160566334947340)
 			{
 				try {
-					message.member.removeRole(args.join(' '));
+					await message.member.remove(args.join(' '));
 				} catch (e) {
 					console.error(e);
 				}
 			}
 		},
-		
+
 		//restricted
 		"createguild": async function() {
 			if(message.author.id == 193160566334947340)
@@ -751,20 +808,20 @@ client.on("message", async message => {
 				}
 			}
 		},
-		
+
 		//only the specified users (the bot owner, usually) can user this, changes the status message
 		"status": async function() {
-			if(message.author.id == 193160566334947340) 
+			if(message.author.id == 193160566334947340)
 			{
 				client.user.setActivity(args.join(" "));
 			}
 		},
 	}
-	
+
 	let log = true;
 	let execute = commandLUT[command] || async function(){log=false;}
-	if(log) console.log("processing " + command + " command");
 	execute();
+	if(log) console.log("processing " + command + " command");
 });
 
 client.on('error', e => console.error(e.stack));
