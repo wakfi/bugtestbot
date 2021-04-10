@@ -1,6 +1,6 @@
 {
   "name": "bug-test-bot",
-  "version": "1.3.2",
+  "version": "1.3.4",
   "description": "useful for testing discord bugs",
   "main": "src/bugTestBot.js",
   "scripts": {
@@ -17,7 +17,8 @@
   },
   "homepage": "https://github.com/wakfi/bugtestbot",
   "dependencies": {
-    "discord.js": "^11.5.1",
+    "discord.js": "^12.5.1",
+    "form-data": "^2.3.3",
     "imgur": "^0.3.1",
     "node-fetch": "^2.6.1"
   }
