@@ -163,7 +163,7 @@ client.on("message", async message => {
 
 		//gives the bot the appearance of speaking by deleting the command message and stealing the content. Will evevntually streamline for remote control (from terminal or dm)
 		"say": async function() {
-			const pargs = parseArgs(args, {'time':['-in','-time','i','t'],'message':['m','-message']});
+			const pargs = parseArgs(args, {'time':['-in','-time','i','t'],'message':['m','-message'],"repeat":'r'});
 			if(pargs.time)
 			{
 				const timeInput = pargs.time.split(' ').join('');
@@ -179,7 +179,16 @@ client.on("message", async message => {
 				if(message.channel.type != 'dm') message.delete().catch(O_o=>{console.error(O_o)});
 			}
 			const sayMessage = pargs.message || pargs.args.join(' ');
-			message.channel.send(sayMessage).catch(err=>{});
+			const totalTimesToSend = Number(pargs.repeat) || 1;
+			for(let i = 0; i < totalTimesToSend; i++)
+			{
+				try
+				{
+					await message.channel.send(sayMessage);
+				} catch(e) {
+					return console.error(e.stack);
+				}
+			}
 		},
 
 		//utilizes a bulk message deltion feature available to bots, able to do up to 100 messages at once, minimum 3. Adjusted to erase command message as well
@@ -820,8 +829,14 @@ ${steps}
 
 	let log = true;
 	let execute = commandLUT[command] || async function(){log=false;}
-	execute();
-	if(log) console.log("processing " + command + " command");
+	try
+	{
+		await execute();
+	} catch(e) {
+		console.error(e.stack);
+		return message.channel.send('Uh Oh! Something bad happened :( Please inform a developer about this issue').catch(o_O=>{});
+	}
+	if(log) console.log('processing ' + command + ' command');
 });
 
 client.on('error', e => console.error(e.stack));
