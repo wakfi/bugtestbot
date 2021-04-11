@@ -21,10 +21,12 @@ const parseLink = require(`${process.cwd()}/util/parseLink.js`);
 const delay = require(`${process.cwd()}/util/delay.js`);
 
 const imgurUploadFormatRegex = /^.+\.(?:png|jpg|jpeg|gif|mp4|webm|mov|mpe?g|flv|wmv)(\?.+?=.*?)*$/;
+const gyazoRegex = /https:\/\/gyazo\.com/g;
 const linkRegex = /^<?https?:\/\/.+?>?$/;
 const leadingDashRegex = /^\s*-\s?/;
 const reproStepRegex = /\s*\n-/g;
 const snowflakeRegex = /^\d+$/;
+const atMeRegex = /(?<=^|\s)@me(?=\s|$)/gi;
 
 const imgurUpEndpoint = `https://api.imgur.com/3/upload`;
 const imgurCdn = `https://i.imgur.com/`;
@@ -92,7 +94,7 @@ client.on("message", async message => {
 			} else {
 				if(message.channel.type != 'dm') message.delete().catch(O_o=>{console.error(O_o)});
 			}
-			const sayMessage = pargs.message || pargs.args.join(' ');
+			const sayMessage = (pargs.message || pargs.args.join(' ')).replace(atMeRegex, message.author.toString());
 			const totalTimesToSend = Number(pargs.repeat) || 1;
 			for(let i = 0; i < totalTimesToSend; i++)
 			{
@@ -550,7 +552,8 @@ ${steps}
 			const imageLinks = [];
 			const uploadAttachment = async (url) =>
 			{
-				try {
+				try
+				{
 					const form = new FormData();
 					form.append(linkIsVideo.test(url) ? 'video' : 'image', url);
 					form.append('type', 'url');
@@ -574,6 +577,19 @@ ${steps}
 					inputLinks.push(parseLink(arg));
 				}
 			});
+			for(let i = 0; i < inputLinks.length; i++)
+			{
+				let link = inputLinks[i];
+				if(!gyazoRegex.test(link)) break;
+				link = link.replace(gyazoRegex, `https://i.gyazo.com`);
+				let r = await fetch(link + '.png');
+				if(r.ok) {inputLinks[i] = link + '.png'; break}
+				r = await fetch(link + '.jpg');
+				if(r.ok) {inputLinks[i] = link + '.jpg'; break}
+				r = await fetch(link + '.gif');
+				if(r.ok) {inputLinks[i] = link + '.gif'; break}
+				await selfDeleteReply(message, `Please manually convert gyazo link to a direct image link for: \`${link}\``, {duration: 0, sendStandard: true});
+			}
 			message.attachments.forEach(attachment =>
 			{
 				if(imgurUploadFormatRegex.test(attachment.name))
