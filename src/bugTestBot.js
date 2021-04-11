@@ -718,6 +718,29 @@ ${steps}
 			const cleanContent = messageContent.replace(apostropheRegex, `'`).replace(quoteRegex, `"`);
 			message.channel.send('```\n' + cleanContent + '\n```').catch(console.error);
 		},
+		
+		"createhook": async function() {
+			if(message.guild.id === '765611756441436160')
+			{
+				// Guild is DTT, cannot be available until more sophistacted permission system is implemented
+				return;
+			}
+			const pargs = parseArgs(args, {'channel':['c','-channel'], 'name':['n', '-name'], 'avatar':['a', '-avatar'], 'reason':['r', '-reason']});
+			const channelInput = pargs.channel || message.channel.id;
+			const name = pargs.name || pargs.args.join('') || `${client.user.username} Hook (${Date.now()})`;
+			const avatar = pargs.avatar || undefined; // optional, default none
+			const reason = pargs.reason || undefined; // optional, default none
+			const channelId = channelRegex.test(channelInput) ? channelRegex.exec(channelInput)[1] : channelInput;
+			if(!snowflakeRegex.test(channelId) || !message.guild.channels.has(channelId)) return selfDeleteReply(message, `"${channelInput}" could not be resolved to a channel`);
+			const channel = message.guild.channels.get(channelId);
+			try {
+				const hook = await channel.createWebhook(name, avatar, reason);
+				await selfDeleteReply(message, `created webhook \`${hook.name}\` in <#${hook.channelID}>`, `30s`);
+			} catch(e) {
+				console.error(`in createhook:\n\t${e.stack}`)
+				selfDeleteReply(message, `I ran into an error while trying to create the webhook!`);
+			}
+		},
 
 		"deletehook": async function() {
 			if(message.guild.id === '765611756441436160')
