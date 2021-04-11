@@ -191,30 +191,6 @@ client.on("message", async message => {
 			}
 		},
 
-		//utilizes a bulk message deltion feature available to bots, able to do up to 100 messages at once, minimum 3. Adjusted to erase command message as well
-		"purge": async function() {
-			if(message.guild.id === '765611756441436160')
-			{
-				// Guild is DTT, cannot be available until more sophistacted permission system is implemented
-				return;
-			}
-			if(message.author.id != 193160566334947340)
-				return authorReply(message,`Sorry, you don't have permissions to use this!`);
-			// This command removes all messages from all users in the channel, up to 100
-
-			// get the delete count, as an actual number.
-			const deleteCount = parseInt(args[0], 10) + 1;
-
-			// Ooooh nice, combined conditions. <3
-			if(!deleteCount || deleteCount < 2 || deleteCount > 100)
-				return message.reply(`Please provide a number between 2 and 99 (inclusive) for the number of messages to delete`);
-
-			// So we get our messages, and delete them. Simple enough, right?
-			const fetched = await message.channel.messages.fetch({limit: deleteCount});
-			message.channel.bulkDelete(deleteCount)
-			.catch(error => message.reply(`Couldn't delete messages because of: ${error}`));
-		},
-
 		//responds with the current time connected to the discord server in hh:mm:ss format. If hour exceeds 99, will adjust to triple digit, etc
 		"uptime": async function() {
 			function pad(n, z) {
@@ -550,14 +526,6 @@ ${steps}
 
 		},
 
-		"status": async function() {
-			if(message.author.id != 193160566334947340) {
-				return null;
-			} else {
-				client.user.setActivity(args.join(" "));
-			}
-		},
-
 		"embed": async function() {
 			const pargs = parseArgs(args, {'author':['a', '-author'], 'avatar':['p', '-author-avatar', '-author-picture'], 'color':['c', '-color'], 'thumbnail':['b', '-thumbnail'], 'title':['t', '-title'], 'description':['d', '-description'], 'url':['u', '-url', '-link'], 'footer':['f', '-footer'], 'footerAvatar':['o', '-footer-avatar', '-footer-picture', '--footer-icon'], 'timestamp':['s', '-timestamp'], 'image':['i', '-image']});
 			const author = pargs.author;
@@ -717,54 +685,6 @@ ${steps}
 			const cleanContent = messageContent.replace(apostropheRegex, `'`).replace(quoteRegex, `"`);
 			message.channel.send('```\n' + cleanContent + '\n```').catch(console.error);
 		},
-		
-		"createhook": async function() {
-			if(message.guild.id === '765611756441436160')
-			{
-				// Guild is DTT, cannot be available until more sophistacted permission system is implemented
-				return;
-			}
-			const pargs = parseArgs(args, {'channel':['c','-channel'], 'name':['n', '-name'], 'avatar':['a', '-avatar'], 'reason':['r', '-reason']});
-			const channelInput = pargs.channel || message.channel.id;
-			const name = pargs.name || pargs.args.join('') || `${client.user.username} Hook (${Date.now()})`;
-			const avatar = pargs.avatar || undefined; // optional, default none
-			const reason = pargs.reason || undefined; // optional, default none
-			const channelId = channelRegex.test(channelInput) ? channelRegex.exec(channelInput)[1] : channelInput;
-			if(!snowflakeRegex.test(channelId) || !message.guild.channels.has(channelId)) return selfDeleteReply(message, `"${channelInput}" could not be resolved to a channel`);
-			const channel = message.guild.channels.get(channelId);
-			try {
-				const hook = await channel.createWebhook(name, avatar, reason);
-				await selfDeleteReply(message, `created webhook \`${hook.name}\` in <#${hook.channelID}>`, `30s`);
-			} catch(e) {
-				console.error(`in createhook:\n\t${e.stack}`)
-				selfDeleteReply(message, `I ran into an error while trying to create the webhook!`);
-			}
-		},
-
-		"deletehook": async function() {
-			if(message.guild.id === '765611756441436160')
-			{
-				// Guild is DTT, cannot be available until more sophistacted permission system is implemented
-				return;
-			}
-			let hooks = await message.channel.fetchWebhooks();
-			let hook = hooks.first();
-			hook.delete();
-			message.channel.send(`Deleted ${hook.name}`);
-		},
-
-		"edithook": async function() {
-			if(message.guild.id === '765611756441436160')
-			{
-				// Guild is DTT, cannot be available until more sophistacted permission system is implemented
-				return;
-			}
-			let hooks = await message.channel.fetchWebhooks();
-			let hook = hooks.first();
-			let oldName = hook.name;
-			hook.edit(args.join(" "));
-			message.channel.send(`Renamed ${oldName} to ${args.join(" ")}`);
-		},
 
 		"pingme": async function() {commandLUT["pingmein"]()},
 		"pingmein": async function() {
@@ -789,68 +709,6 @@ ${steps}
 				setTimeout(function(){resolve(message.channel.send(args.join(' ')))}, timeToDelay);
 			});
 			await ping;
-		},
-
-		"addrole": async function() {
-			if(message.guild.id === '765611756441436160')
-			{
-				// Guild is DTT, cannot be available until more sophistacted permission system is implemented
-				return;
-			}
-			if(message.author.id == 193160566334947340)
-			{
-				try {
-					await message.member.roles.add(args.join(' '));
-				} catch (e) {
-					console.error(e);
-				}
-			}
-		},
-
-		"removerole": async function() {
-			if(message.guild.id === '765611756441436160')
-			{
-				// Guild is DTT, cannot be available until more sophistacted permission system is implemented
-				return;
-			}
-			if(message.author.id == 193160566334947340)
-			{
-				try {
-					await message.member.roles.remove(args.join(' '));
-				} catch (e) {
-					console.error(e);
-				}
-			}
-		},
-
-		//restricted
-		"createguild": async function() {
-			if(message.author.id == 193160566334947340)
-			{
-				try {
-					const guild = await client.user.createGuild(args.join(" "));
-					const defaultChannel = await guild.createChannel("general2", {"type" : "text"});
-					const invite = await defaultChannel.createInvite();
-					await message.author.send(invite.url);
-					const role = await guild.createRole({ name:'Tester', permissions:['ADMINISTRATOR'] });
-					await message.author.send(role.id);
-				} catch (e) {
-					console.error(e);
-				}
-			}
-		},
-
-		"posrole": async function() {
-			if(message.author.id != 193160566334947340) return;
-
-			const guild = message.guild;
-			if(!guild) return await message.reply('ur not in a guild rn homeslice');
-			const role = guild.roles.resolve(args[0]);
-			if(!role) return await message.reply(`i dont see a role matching \`${args[0]}\` sry`);
-			let position = Number(args[1]) || -1;
-			const options = {relative: !!args[2]};
-			if(!options.relative && position === -1) position = guild.roles.highest.position + 1;
-			role.setPosition(position, options);
 		},
 
 		//only the specified users (the bot owner, usually) can user this, changes the status message
