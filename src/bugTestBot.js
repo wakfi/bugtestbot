@@ -9,21 +9,21 @@ const client = new Discord.Client(clientOps);
 const config = require("./components/config.json");
 let d = new Date();
 
-const delay = require(`${process.cwd()}/util/delay.js`);
 const millisecondsToString = require(`${process.cwd()}/util/millisecondsToString.js`);
-const parseArgs = require(`${process.cwd()}/util/parseArgs.js`);
-const parseTime = require(`${process.cwd()}/util/parseTime.js`);
-const parseLink = require(`${process.cwd()}/util/parseLink.js`);
+const addTimestampLogs = require(`${process.cwd()}/util/addTimestampLogs.js`);
 const printTimePretty = require(`${process.cwd()}/util/printTimePretty.js`);
 const selfDeleteReply = require(`${process.cwd()}/util/selfDeleteReply.js`);
 const authorReply = require(`${process.cwd()}/util/authorReply.js`);
 const arrayEquals = require(`${process.cwd()}/util/arrayEquals.js`);
+const parseArgs = require(`${process.cwd()}/util/parseArgs.js`);
+const parseTime = require(`${process.cwd()}/util/parseTime.js`);
+const parseLink = require(`${process.cwd()}/util/parseLink.js`);
+const delay = require(`${process.cwd()}/util/delay.js`);
 
 const imgurUploadFormatRegex = /^.+\.(?:png|jpg|jpeg|gif|mp4|webm|mov|mpe?g|flv|wmv)(\?.+?=.*?)*$/;
 const linkRegex = /^<?https?:\/\/.+?>?$/;
 const leadingDashRegex = /^\s*-\s?/;
 const reproStepRegex = /\s*\n-/g;
-const channelRegex = /^<#(\d+)>$/;
 const snowflakeRegex = /^\d+$/;
 
 const imgurUpEndpoint = `https://api.imgur.com/3/upload`;
@@ -38,100 +38,14 @@ const imgurImgOrVideo = /<link rel="image_src" href="/;
 const imgurUriRegex = /\{"hash":"([a-zA-Z0-9]{7})".*?"ext":"(\..{3,4}?).*?\}/g;
 const linkIsVideo = /^.*\.(mp4|webm|mov|mpe?g|flv|wmv)$/;
 
-//adds timestamps to log outputs
-function fixLogs()
-{
-	let origLogFunc = console.log;
-	let origErrFunc = console.error;
-	console.log = input =>
-	{
-		d = new Date();
-		let ms = d.getMilliseconds();
-		if(typeof input === 'string')
-		{
-			let inArr = input.split(`\n`);
-			inArr.map(tex => {origLogFunc(`${d.toLocaleString('en-US',{year:'numeric',month:'numeric',day:'numeric'})} ${d.toLocaleTimeString(undefined,{hour12:false})}:${ms}${ms>99?'  ':ms>9?'   ':'    '}${tex}`)});
-		} else {
-			origLogFunc(`${d.toLocaleString('en-US',{year:'numeric',month:'numeric',day:'numeric'})} ${d.toLocaleTimeString(undefined,{hour12:false})}:${ms}${ms>99?'  ':ms>9?'   ':'    '}${input}`)
-		}
-	}
-	console.error = input =>
-	{
-		d = new Date();
-		let ms = d.getMilliseconds();
-		if(typeof input === 'string')
-		{
-			let inArr = input.split(`\n`);
-			inArr.map(tex => {origErrFunc(`${d.toLocaleString('en-US',{year:'numeric',month:'numeric',day:'numeric'})} ${d.toLocaleTimeString(undefined,{hour12:false})}:${ms}${ms>99?'  ':ms>9?'   ':'    '}${tex}`)});
-		} else {
-			origErrFunc(`${d.toLocaleString('en-US',{year:'numeric',month:'numeric',day:'numeric'})} ${d.toLocaleTimeString(undefined,{hour12:false})}:${ms}${ms>99?'  ':ms>9?'   ':'    '}${input}`)
-		}
-	}
-}
+
 
 //this is the file that holds the login info, to keep it seperate from the source code for safety
 client.once("ready", async () => {
-	fixLogs();
-	console.log(`${client.user.username} has started, with ${client.users.size} users, in ${client.channels.size} channels of ${client.guilds.size} guilds.`);
+	addTimestampLogs();
+	console.log(`${client.user.username} has started, with ${client.users.cache.size} users, in ${client.channels.cache.size} channels of ${client.guilds.cache.size} guilds.`);
 	client.user.setActivity(`Time to catch bugs 🐞`);
 });
-
-/*
- modified from https://github.com/AnIdiotsGuide/discordjs-bot-guide/blob/master/coding-guides/raw-events.md
-*/
-client.on(`raw`, async packet =>
-{
-	// We don't want this to run on unrelated packets
-    if (!['MESSAGE_REACTION_ADD', 'MESSAGE_REACTION_REMOVE'].includes(packet.t)) return;
-	const data = packet.d;
-    // Grab the channel the message is from
-    const channel = await client.channels.fetch(data.channel_id);
-	const messageWasCached = channel.messages.cache.has(packet.d.message_id);
-    // Fetches & resolves with message if not cached or message in cache is a partial, otherwise resolves with cached message
-    const message = await channel.messages.fetch(data.message_id);
-	// Emojis can have identifiers of name:id format, so we have to account for that case as well
-	const emoji = data.emoji.id ? `${data.emoji.id}` : data.emoji.name;
-	// This gives us the reaction we need to emit the event properly, in top of the message object
-	const reaction = message.reactions.cache.get(emoji) || new Discord.MessageReaction(client, packet.d, 0, message);
-	if(!reaction) return;
-	reaction.message = message;
-	// Fetch and verify user
-	const user = await message.client.users.fetch(packet.d.user_id);
-	if(!user || user.bot) return;
-	// Check which type of event it is to select callback
-	if (packet.t === 'MESSAGE_REACTION_ADD')
-	{
-		// Adds the currently reacting user to the reaction's ReactionUserManager
-		if(!messageWasCached) reaction._add(user);
-		messageReactionAdd(reaction, user);
-	} else if(packet.t === 'MESSAGE_REACTION_REMOVE') {
-		// Removes the currently reacting user from the reaction's ReactionUserManager
-		if(!messageWasCached) reaction._remove(user);
-		messageReactionRemove(reaction, user);
-	}
-});
-
-function messageReactionAdd(reaction, user)
-{
-	if(reaction.emoji.name === `📌`)
-	{
-		if(reaction.users.cache.size == 1)
-		{
-			reaction.message.pin().catch(console.error);
-		}
-	}
-}
-
-function messageReactionRemove(reaction, user)
-{
-	if(reaction.emoji.name === `📌`)
-	{
-		if(reaction.users.cache.size === undefined || reaction.users.cache.size === 0)
-		{
-			reaction.message.unpin().catch(console.error);
-		}
-	}
-}
 
 //this event triggers when a message is sent in a channel the bot has access to
 client.on("message", async message => {
