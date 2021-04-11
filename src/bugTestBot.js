@@ -666,7 +666,6 @@ ${steps}
 		"up": async function() {commandLUT["upload"]()},
 		"upload": async function() {
 			const imageLinks = [];
-
 			const uploadAttachment = async (url) =>
 			{
 				try {
