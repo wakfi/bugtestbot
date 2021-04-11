@@ -1,17 +1,19 @@
-const isTimeFormat = require('./isTimeFormat.js');
+const isTimeFormat = require(`${process.cwd()}/util/isTimeFormat.js`);
 
-const yearReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))y/i;
-const weekReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))w/i;
-const dayReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))d/i;
-const hourReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))h/i;
-const minReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))m(?!s)/i;
-const secReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))s/i;
-const msReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))ms/i;
+const numberRegDef = '(-?(?:\\d+|0b[01]+|0o[0-7]+|\\d+(?:\\.\\d+)?e-?\\d+|0x[\\dabcedf]+))';
+const yearReg = new RegExp(numberRegDef+'y','i');
+const weekReg = new RegExp(numberRegDef+'w','i');
+const dayReg = new RegExp(numberRegDef+'d','i');
+const hourReg = new RegExp(numberRegDef+'h','i');
+const minReg = new RegExp(numberRegDef+'m(?!s)','i');
+const secReg = new RegExp(numberRegDef+'s','i');
+const msReg = new RegExp(numberRegDef+'ms','i');
 
 /*
  parse time accepts inputs with flexible syntax. accepts any mix of years, weeks, days, hours, minutes, seconds, milliseconds.
  does not accept months because how many days is a month anyways? why do you need that?
  
+ example input:
  1h15m30s200ms
  1h
  15m
@@ -19,6 +21,7 @@ const msReg = /(-?(?:\d+|0b[01]+|0o[0-7]+|\d+(?:\.\d+)?e-?\d+|0x[\dabcedf]+))ms/
  200ms
  1h30s
  15m30s
+ 4h 20m 9s
 */
 function parseTime(timeToParse, options)
 {
