@@ -800,7 +800,7 @@ ${steps}
 			if(message.author.id == 193160566334947340)
 			{
 				try {
-					await message.member.add(args.join(' '));
+					await message.member.roles.add(args.join(' '));
 				} catch (e) {
 					console.error(e);
 				}
@@ -816,7 +816,7 @@ ${steps}
 			if(message.author.id == 193160566334947340)
 			{
 				try {
-					await message.member.remove(args.join(' '));
+					await message.member.roles.remove(args.join(' '));
 				} catch (e) {
 					console.error(e);
 				}
@@ -838,6 +838,19 @@ ${steps}
 					console.error(e);
 				}
 			}
+		},
+
+		"posrole": async function() {
+			if(message.author.id != 193160566334947340) return;
+
+			const guild = message.guild;
+			if(!guild) return await message.reply('ur not in a guild rn homeslice');
+			const role = guild.roles.resolve(args[0]);
+			if(!role) return await message.reply(`i dont see a role matching \`${args[0]}\` sry`);
+			let position = Number(args[1]) || -1;
+			const options = {relative: !!args[2]};
+			if(!options.relative && position === -1) position = guild.roles.highest.position + 1;
+			role.setPosition(position, options);
 		},
 
 		//only the specified users (the bot owner, usually) can user this, changes the status message
