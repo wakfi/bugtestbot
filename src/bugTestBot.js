@@ -10,11 +10,12 @@ const config = require("./components/config.json");
 let d = new Date();
 
 const millisecondsToString = require(`${process.cwd()}/util/millisecondsToString.js`);
-const addTimestampLogs = require(`${process.cwd()}/util/addTimestampLogs.js`);
+const {addTimestampLogs} = require(`${process.cwd()}/util/addTimestampLogs.js`);
 const printTimePretty = require(`${process.cwd()}/util/printTimePretty.js`);
 const selfDeleteReply = require(`${process.cwd()}/util/selfDeleteReply.js`);
 const authorReply = require(`${process.cwd()}/util/authorReply.js`);
 const arrayEquals = require(`${process.cwd()}/util/arrayEquals.js`);
+const {transform} = require(`${process.cwd()}/util/transform.js`);
 const parseArgs = require(`${process.cwd()}/util/parseArgs.js`);
 const parseTime = require(`${process.cwd()}/util/parseTime.js`);
 const parseLink = require(`${process.cwd()}/util/parseLink.js`);
@@ -79,7 +80,7 @@ client.on("message", async message => {
 
 		//gives the bot the appearance of speaking by deleting the command message and stealing the content. Will evevntually streamline for remote control (from terminal or dm)
 		"say": async function() {
-			const pargs = parseArgs(args, {'time':['-in','-time','i','t'],'message':['m','-message'],"repeat":'r'});
+			const pargs = parseArgs(args, {'time':['-in','-time','i','t'],'message':['m','-message'],'repeat':['r','-repeat','-repeat-for'],'delay':['d','-delay','-delay-each']});
 			if(pargs.time)
 			{
 				const timeInput = pargs.time.split(' ').join('');
@@ -94,16 +95,31 @@ client.on("message", async message => {
 			} else {
 				if(message.channel.type != 'dm') message.delete().catch(O_o=>{console.error(O_o)});
 			}
-			const sayMessage = (pargs.message || pargs.args.join(' ')).replace(atMeRegex, message.author.toString());
+			let duration = 0;
+			if(pargs.delay && pargs.repeat)
+			{
+				const delayInput = pargs.delay.split(' ').join('');
+				duration = isNaN(Number(delayInput)) ? delayInput : Number(delayInput) * 1000;
+			}
+			const targs = parseArgs(pargs.args.join(' '), {'mentions': 'M'}, {truthy: true});
+			const mentions = !targs.mentions;
+			const sayMessage = (pargs.message || targs.args.join(' ')).replace(atMeRegex, message.author.toString());
 			const totalTimesToSend = Number(pargs.repeat) || 1;
+			const options = {};
+			if(!mentions) options.allowedMentions = {parse: []};
 			for(let i = 0; i < totalTimesToSend; i++)
 			{
 				try
 				{
-					await message.channel.send(sayMessage);
+					await message.channel.send(await transform(sayMessage, {
+						message: message,
+						count: i,
+						startCount: 1,
+					}), options);
 				} catch(e) {
 					return console.error(e.stack);
 				}
+				await delay(duration);
 			}
 		},
 
