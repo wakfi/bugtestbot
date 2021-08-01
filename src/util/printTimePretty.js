@@ -1,5 +1,5 @@
-const isTimeFormat = require('./isTimeFormat.js');
-const replaceLast = require('./replaceLast.js');
+const isTimeFormat = require(`${process.cwd()}/util/isTimeFormat.js`);
+const replaceLast = require(`${process.cwd()}/util/replaceLast.js`);
 const unitSizes = {'l':0,'y':7,'w':6,'d':5,'h':4,'m':3,'s':2,'ms':1};
 
 function printTimePretty(readableTime, smallestUnit)

@@ -9,22 +9,25 @@ const client = new Discord.Client(clientOps);
 const config = require("./components/config.json");
 let d = new Date();
 
-const delay = require(`${process.cwd()}/util/delay.js`);
 const millisecondsToString = require(`${process.cwd()}/util/millisecondsToString.js`);
-const parseArgs = require(`${process.cwd()}/util/parseArgs.js`);
-const parseTime = require(`${process.cwd()}/util/parseTime.js`);
-const parseLink = require(`${process.cwd()}/util/parseLink.js`);
+const {addTimestampLogs} = require(`${process.cwd()}/util/addTimestampLogs.js`);
 const printTimePretty = require(`${process.cwd()}/util/printTimePretty.js`);
 const selfDeleteReply = require(`${process.cwd()}/util/selfDeleteReply.js`);
 const authorReply = require(`${process.cwd()}/util/authorReply.js`);
 const arrayEquals = require(`${process.cwd()}/util/arrayEquals.js`);
+const {transform} = require(`${process.cwd()}/util/transform.js`);
+const parseArgs = require(`${process.cwd()}/util/parseArgs.js`);
+const parseTime = require(`${process.cwd()}/util/parseTime.js`);
+const parseLink = require(`${process.cwd()}/util/parseLink.js`);
+const delay = require(`${process.cwd()}/util/delay.js`);
 
 const imgurUploadFormatRegex = /^.+\.(?:png|jpg|jpeg|gif|mp4|webm|mov|mpe?g|flv|wmv)(\?.+?=.*?)*$/;
+const gyazoRegex = /https:\/\/gyazo\.com/g;
 const linkRegex = /^<?https?:\/\/.+?>?$/;
 const leadingDashRegex = /^\s*-\s?/;
 const reproStepRegex = /\s*\n-/g;
-const channelRegex = /^<#(\d+)>$/;
 const snowflakeRegex = /^\d+$/;
+const atMeRegex = /(?<=^|\s)@me(?=\s|$)/gi;
 
 const imgurUpEndpoint = `https://api.imgur.com/3/upload`;
 const imgurCdn = `https://i.imgur.com/`;
@@ -38,100 +41,14 @@ const imgurImgOrVideo = /<link rel="image_src" href="/;
 const imgurUriRegex = /\{"hash":"([a-zA-Z0-9]{7})".*?"ext":"(\..{3,4}?).*?\}/g;
 const linkIsVideo = /^.*\.(mp4|webm|mov|mpe?g|flv|wmv)$/;
 
-//adds timestamps to log outputs
-function fixLogs()
-{
-	let origLogFunc = console.log;
-	let origErrFunc = console.error;
-	console.log = input =>
-	{
-		d = new Date();
-		let ms = d.getMilliseconds();
-		if(typeof input === 'string')
-		{
-			let inArr = input.split(`\n`);
-			inArr.map(tex => {origLogFunc(`${d.toLocaleString('en-US',{year:'numeric',month:'numeric',day:'numeric'})} ${d.toLocaleTimeString(undefined,{hour12:false})}:${ms}${ms>99?'  ':ms>9?'   ':'    '}${tex}`)});
-		} else {
-			origLogFunc(`${d.toLocaleString('en-US',{year:'numeric',month:'numeric',day:'numeric'})} ${d.toLocaleTimeString(undefined,{hour12:false})}:${ms}${ms>99?'  ':ms>9?'   ':'    '}${input}`)
-		}
-	}
-	console.error = input =>
-	{
-		d = new Date();
-		let ms = d.getMilliseconds();
-		if(typeof input === 'string')
-		{
-			let inArr = input.split(`\n`);
-			inArr.map(tex => {origErrFunc(`${d.toLocaleString('en-US',{year:'numeric',month:'numeric',day:'numeric'})} ${d.toLocaleTimeString(undefined,{hour12:false})}:${ms}${ms>99?'  ':ms>9?'   ':'    '}${tex}`)});
-		} else {
-			origErrFunc(`${d.toLocaleString('en-US',{year:'numeric',month:'numeric',day:'numeric'})} ${d.toLocaleTimeString(undefined,{hour12:false})}:${ms}${ms>99?'  ':ms>9?'   ':'    '}${input}`)
-		}
-	}
-}
+
 
 //this is the file that holds the login info, to keep it seperate from the source code for safety
 client.once("ready", async () => {
-	fixLogs();
-	console.log(`${client.user.username} has started, with ${client.users.size} users, in ${client.channels.size} channels of ${client.guilds.size} guilds.`);
+	addTimestampLogs();
+	console.log(`${client.user.username} has started, with ${client.users.cache.size} users, in ${client.channels.cache.size} channels of ${client.guilds.cache.size} guilds.`);
 	client.user.setActivity(`Time to catch bugs 🐞`);
 });
-
-/*
- modified from https://github.com/AnIdiotsGuide/discordjs-bot-guide/blob/master/coding-guides/raw-events.md
-*/
-client.on(`raw`, async packet =>
-{
-	// We don't want this to run on unrelated packets
-    if (!['MESSAGE_REACTION_ADD', 'MESSAGE_REACTION_REMOVE'].includes(packet.t)) return;
-	const data = packet.d;
-    // Grab the channel the message is from
-    const channel = await client.channels.fetch(data.channel_id);
-	const messageWasCached = channel.messages.cache.has(packet.d.message_id);
-    // Fetches & resolves with message if not cached or message in cache is a partial, otherwise resolves with cached message
-    const message = await channel.messages.fetch(data.message_id);
-	// Emojis can have identifiers of name:id format, so we have to account for that case as well
-	const emoji = data.emoji.id ? `${data.emoji.id}` : data.emoji.name;
-	// This gives us the reaction we need to emit the event properly, in top of the message object
-	const reaction = message.reactions.cache.get(emoji) || new Discord.MessageReaction(client, packet.d, 0, message);
-	if(!reaction) return;
-	reaction.message = message;
-	// Fetch and verify user
-	const user = await message.client.users.fetch(packet.d.user_id);
-	if(!user || user.bot) return;
-	// Check which type of event it is to select callback
-	if (packet.t === 'MESSAGE_REACTION_ADD')
-	{
-		// Adds the currently reacting user to the reaction's ReactionUserManager
-		if(!messageWasCached) reaction._add(user);
-		messageReactionAdd(reaction, user);
-	} else if(packet.t === 'MESSAGE_REACTION_REMOVE') {
-		// Removes the currently reacting user from the reaction's ReactionUserManager
-		if(!messageWasCached) reaction._remove(user);
-		messageReactionRemove(reaction, user);
-	}
-});
-
-function messageReactionAdd(reaction, user)
-{
-	if(reaction.emoji.name === `📌`)
-	{
-		if(reaction.users.cache.size == 1)
-		{
-			reaction.message.pin().catch(console.error);
-		}
-	}
-}
-
-function messageReactionRemove(reaction, user)
-{
-	if(reaction.emoji.name === `📌`)
-	{
-		if(reaction.users.cache.size === undefined || reaction.users.cache.size === 0)
-		{
-			reaction.message.unpin().catch(console.error);
-		}
-	}
-}
 
 //this event triggers when a message is sent in a channel the bot has access to
 client.on("message", async message => {
@@ -163,7 +80,7 @@ client.on("message", async message => {
 
 		//gives the bot the appearance of speaking by deleting the command message and stealing the content. Will evevntually streamline for remote control (from terminal or dm)
 		"say": async function() {
-			const pargs = parseArgs(args, {'time':['-in','-time','i','t'],'message':['m','-message'],"repeat":'r'});
+			const pargs = parseArgs(args, {'time':['-in','-time','i','t'],'message':['m','-message'],'repeat':['r','-repeat','-repeat-for'],'delay':['d','-delay','-delay-each']});
 			if(pargs.time)
 			{
 				const timeInput = pargs.time.split(' ').join('');
@@ -178,41 +95,32 @@ client.on("message", async message => {
 			} else {
 				if(message.channel.type != 'dm') message.delete().catch(O_o=>{console.error(O_o)});
 			}
-			const sayMessage = pargs.message || pargs.args.join(' ');
+			let duration = 0;
+			if(pargs.delay && pargs.repeat)
+			{
+				const delayInput = pargs.delay.split(' ').join('');
+				duration = isNaN(Number(delayInput)) ? delayInput : Number(delayInput) * 1000;
+			}
+			const targs = parseArgs(pargs.args.join(' '), {'mentions': 'M'}, {truthy: true});
+			const mentions = !targs.mentions;
+			const sayMessage = (pargs.message || targs.args.join(' ')).replace(atMeRegex, message.author.toString());
 			const totalTimesToSend = Number(pargs.repeat) || 1;
+			const options = {};
+			if(!mentions) options.allowedMentions = {parse: []};
 			for(let i = 0; i < totalTimesToSend; i++)
 			{
 				try
 				{
-					await message.channel.send(sayMessage);
+					await message.channel.send(await transform(sayMessage, {
+						message: message,
+						count: i,
+						startCount: 1,
+					}), options);
 				} catch(e) {
 					return console.error(e.stack);
 				}
+				await delay(duration);
 			}
-		},
-
-		//utilizes a bulk message deltion feature available to bots, able to do up to 100 messages at once, minimum 3. Adjusted to erase command message as well
-		"purge": async function() {
-			if(message.guild.id === '765611756441436160')
-			{
-				// Guild is DTT, cannot be available until more sophistacted permission system is implemented
-				return;
-			}
-			if(message.author.id != 193160566334947340)
-				return authorReply(message,`Sorry, you don't have permissions to use this!`);
-			// This command removes all messages from all users in the channel, up to 100
-
-			// get the delete count, as an actual number.
-			const deleteCount = parseInt(args[0], 10) + 1;
-
-			// Ooooh nice, combined conditions. <3
-			if(!deleteCount || deleteCount < 2 || deleteCount > 100)
-				return message.reply(`Please provide a number between 2 and 99 (inclusive) for the number of messages to delete`);
-
-			// So we get our messages, and delete them. Simple enough, right?
-			const fetched = await message.channel.messages.fetch({limit: deleteCount});
-			message.channel.bulkDelete(deleteCount)
-			.catch(error => message.reply(`Couldn't delete messages because of: ${error}`));
 		},
 
 		//responds with the current time connected to the discord server in hh:mm:ss format. If hour exceeds 99, will adjust to triple digit, etc
@@ -550,14 +458,6 @@ ${steps}
 
 		},
 
-		"status": async function() {
-			if(message.author.id != 193160566334947340) {
-				return null;
-			} else {
-				client.user.setActivity(args.join(" "));
-			}
-		},
-
 		"embed": async function() {
 			const pargs = parseArgs(args, {'author':['a', '-author'], 'avatar':['p', '-author-avatar', '-author-picture'], 'color':['c', '-color'], 'thumbnail':['b', '-thumbnail'], 'title':['t', '-title'], 'description':['d', '-description'], 'url':['u', '-url', '-link'], 'footer':['f', '-footer'], 'footerAvatar':['o', '-footer-avatar', '-footer-picture', '--footer-icon'], 'timestamp':['s', '-timestamp'], 'image':['i', '-image']});
 			const author = pargs.author;
@@ -666,10 +566,10 @@ ${steps}
 		"up": async function() {commandLUT["upload"]()},
 		"upload": async function() {
 			const imageLinks = [];
-
 			const uploadAttachment = async (url) =>
 			{
-				try {
+				try
+				{
 					const form = new FormData();
 					form.append(linkIsVideo.test(url) ? 'video' : 'image', url);
 					form.append('type', 'url');
@@ -693,6 +593,19 @@ ${steps}
 					inputLinks.push(parseLink(arg));
 				}
 			});
+			for(let i = 0; i < inputLinks.length; i++)
+			{
+				let link = inputLinks[i];
+				if(!gyazoRegex.test(link)) break;
+				link = link.replace(gyazoRegex, `https://i.gyazo.com`);
+				let r = await fetch(link + '.png');
+				if(r.ok) {inputLinks[i] = link + '.png'; break}
+				r = await fetch(link + '.jpg');
+				if(r.ok) {inputLinks[i] = link + '.jpg'; break}
+				r = await fetch(link + '.gif');
+				if(r.ok) {inputLinks[i] = link + '.gif'; break}
+				await selfDeleteReply(message, `Please manually convert gyazo link to a direct image link for: \`${link}\``, {duration: 0, sendStandard: true});
+			}
 			message.attachments.forEach(attachment =>
 			{
 				if(imgurUploadFormatRegex.test(attachment.name))
@@ -719,31 +632,6 @@ ${steps}
 			message.channel.send('```\n' + cleanContent + '\n```').catch(console.error);
 		},
 
-		"deletehook": async function() {
-			if(message.guild.id === '765611756441436160')
-			{
-				// Guild is DTT, cannot be available until more sophistacted permission system is implemented
-				return;
-			}
-			let hooks = await message.channel.fetchWebhooks();
-			let hook = hooks.first();
-			hook.delete();
-			message.channel.send(`Deleted ${hook.name}`);
-		},
-
-		"edithook": async function() {
-			if(message.guild.id === '765611756441436160')
-			{
-				// Guild is DTT, cannot be available until more sophistacted permission system is implemented
-				return;
-			}
-			let hooks = await message.channel.fetchWebhooks();
-			let hook = hooks.first();
-			let oldName = hook.name;
-			hook.edit(args.join(" "));
-			message.channel.send(`Renamed ${oldName} to ${args.join(" ")}`);
-		},
-
 		"pingme": async function() {commandLUT["pingmein"]()},
 		"pingmein": async function() {
 			let ping = new Promise((resolve,reject) =>
@@ -767,55 +655,6 @@ ${steps}
 				setTimeout(function(){resolve(message.channel.send(args.join(' ')))}, timeToDelay);
 			});
 			await ping;
-		},
-
-		"addrole": async function() {
-			if(message.guild.id === '765611756441436160')
-			{
-				// Guild is DTT, cannot be available until more sophistacted permission system is implemented
-				return;
-			}
-			if(message.author.id == 193160566334947340)
-			{
-				try {
-					await message.member.add(args.join(' '));
-				} catch (e) {
-					console.error(e);
-				}
-			}
-		},
-
-		"removerole": async function() {
-			if(message.guild.id === '765611756441436160')
-			{
-				// Guild is DTT, cannot be available until more sophistacted permission system is implemented
-				return;
-			}
-			if(message.author.id == 193160566334947340)
-			{
-				try {
-					await message.member.remove(args.join(' '));
-				} catch (e) {
-					console.error(e);
-				}
-			}
-		},
-
-		//restricted
-		"createguild": async function() {
-			if(message.author.id == 193160566334947340)
-			{
-				try {
-					const guild = await client.user.createGuild(args.join(" "));
-					const defaultChannel = await guild.createChannel("general2", {"type" : "text"});
-					const invite = await defaultChannel.createInvite();
-					await message.author.send(invite.url);
-					const role = await guild.createRole({ name:'Tester', permissions:['ADMINISTRATOR'] });
-					await message.author.send(role.id);
-				} catch (e) {
-					console.error(e);
-				}
-			}
 		},
 
 		//only the specified users (the bot owner, usually) can user this, changes the status message
