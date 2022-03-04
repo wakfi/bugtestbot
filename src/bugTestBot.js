@@ -235,7 +235,7 @@ client.on("message", async message => {
 			const steps = '- ' + repro.replace(stepsRegex, '\n-');
 			const report =
 `\`\`\`
-**${title}**
+**Short Description:** ${title}
 **Steps to reproduce:**
 ${steps}
 **Expected Results:** ${expected}
